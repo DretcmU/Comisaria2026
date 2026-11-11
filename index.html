@@ -24,7 +24,7 @@ mark{background:#ffe98a}input,select,textarea{font:inherit;padding:8px;border:1p
 button.p{background:var(--brand);color:#fff;border:0;padding:8px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
 button.s{background:#fff;border:1px solid #c9d2cc;padding:6px 10px;border-radius:8px;font:inherit;cursor:pointer}
 button.p:disabled{opacity:.5}
-.map{display:grid;grid-template-columns:330px 1fr;gap:12px;height:calc(100vh - 90px)}
+.map{display:grid;grid-template-columns:330px 1fr;gap:12px;height:calc(100vh - 215px);min-height:420px}
 #side{overflow:auto}#map{border-radius:10px;border:1px solid var(--line);min-height:380px}
 .it{padding:8px 0;border-bottom:1px solid #eef1ee;display:flex;gap:8px;align-items:flex-start}.it div{flex:1;min-width:0}.it small{color:var(--mute);display:block}
 dialog{border:0;border-radius:12px;max-width:720px;width:94vw;padding:20px}dialog::backdrop{background:#0006}
@@ -35,7 +35,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 .xt td{border-bottom:1px solid #d5dbd7;border-right:1px solid #e6ebe7;padding:4px 6px;vertical-align:middle;max-width:230px;overflow-wrap:anywhere;white-space:pre-line}
 .xt td.vv{background:#fff;border-left:1px solid #c9d2cc;white-space:nowrap}
 .hs{display:flex;gap:6px;margin-bottom:8px}.hs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
-.hide{display:none!important}.toast{position:fixed;bottom:16px;right:16px;background:#222;color:#fff;padding:10px 14px;border-radius:8px}
+.hide{display:none!important}.toast{position:fixed;inset:auto 16px 16px auto;margin:0;border:0;background:#222;color:#fff;padding:10px 14px;border-radius:8px;max-width:min(420px,90vw)}
 .ban{background:#fff3cd;border:1px solid #e0c36a;padding:8px 12px;border-radius:8px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .leaflet-container.placing{cursor:crosshair!important}
 .num{background:#1a5fd0;color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;box-shadow:0 1px 4px #0006}
@@ -51,6 +51,18 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 #adm h4{margin:18px 0 6px}
 @media(max-width:800px){body{flex-direction:column}nav{width:auto;flex-direction:row;flex-wrap:wrap;padding:8px}nav h1,nav small{display:none}
 .map{grid-template-columns:1fr;height:auto}#map{height:55vh}#side{max-height:40vh}main{padding:12px}}
+.mtool{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.mrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mrow .grow{flex:1;min-width:200px}
+.mrow label{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--mute)}
+.mrow .sep{width:1px;align-self:stretch;background:var(--line)}
+#mres{max-height:180px;overflow:auto}#mres:empty{display:none}
+#busy{border:0;background:transparent;padding:0;max-width:none;width:auto;overflow:visible;color:#fff;outline:0}
+#busy::backdrop{background:rgba(15,25,20,.55);backdrop-filter:blur(5px)}
+.bbox{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;max-width:320px}
+.spin{width:56px;height:56px;border-radius:50%;border:6px solid rgba(255,255,255,.3);border-top-color:#fff;animation:giro .9s linear infinite}
+.bbox b{font-size:18px}.bbox small{font-size:13.5px;opacity:.9}
+@keyframes giro{to{transform:rotate(360deg)}}
 </style></head><body>
 <div id="login"><div class="lbox" id="lbox"></div></div>
 <nav><h1>Gestión de visitas<br>Comisaría de la Familia</h1>
@@ -65,24 +77,38 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 <div class="bar"><input id="q" placeholder="Búsqueda general"><input id="qe" placeholder="N.º de expediente"><input id="qn" placeholder="Nombres y apellidos"><button class="p" onclick="nuevo()">+ Nuevo registro</button></div>
 <div class="hs" id="hojas"></div><div class="box"><div id="cnt" style="color:var(--mute);margin-bottom:6px"></div><div class="xw"><table id="tab" class="xt"></table></div></div></section>
 
-<section id="t-mapa" class="hide"><h2>Mapa y visitas</h2><div id="ban" class="ban hide"></div>
+<section id="t-mapa" class="hide"><h2>Mapa y visitas</h2>
+<div class="mtool">
+  <div class="mrow">
+    <input id="ms" class="grow" placeholder="Buscar una zona o dirección en el mapa">
+    <button class="s" id="msb">🔍 Buscar</button>
+    <button class="s" id="clr">🧹 Limpiar mapa</button>
+  </div>
+  <div class="mrow">
+    <label>Salir desde <select id="orgSel"><option value="base">La comisaría</option><option value="gps">Mi ubicación actual</option><option value="punto" hidden>Punto elegido en el mapa</option></select></label>
+    <label>Orden <select id="ord"><option value="cerca">Más cercana primero</option><option value="urg">Más urgente primero</option></select></label>
+    <span class="sep"></span>
+    <span id="selN" style="font-size:13px;color:var(--mute)">0 visitas marcadas</span>
+    <button class="p" id="go">▶ Iniciar ruta</button>
+  </div>
+  <div id="mres"></div>
+</div>
+<div id="ban" class="ban hide"></div>
 <div class="map"><div class="box" id="side">
-<div class="bar"><input id="ms" placeholder="Buscar lugar o dirección en el mapa" style="flex:1;min-width:0"><button class="s" id="msb">Buscar</button></div>
-<div id="mres"></div>
-<div class="bar"><button class="s" id="clr">🧹 Limpiar mapa</button></div>
-<b>Visitas por vencer y vencidas</b>
-<span class="help">Pulsa <b>✔ Registrar visita</b> cuando la visita ya se hizo (se marca como visitada). La casilla <b>Incluir en la ruta</b> solo sirve para armar el recorrido.</span>
-<div id="lst"></div>
-<div class="bar" style="margin-top:10px"><button class="s" id="gps">📍 Salir desde mi ubicación</button><span id="org" style="color:var(--mute);font-size:13px">Salida: comisaría</span></div>
-<div class="bar"><select id="ord"><option value="cerca">Más cercana primero</option><option value="urg">Más urgente primero</option></select><button class="p" id="go">Calcular ruta</button></div>
-<div id="rta"></div></div>
+  <b>Visitas por vencer y vencidas</b>
+  <span class="help">Marca con <b>Incluir en la ruta</b> las visitas del recorrido y pulsa <b>▶ Iniciar ruta</b>. Usa <b>✔ Registrar visita</b> cuando la visita ya se hizo.</span>
+  <div id="lst"></div>
+  <div id="rta"></div></div>
 <div id="map"></div></div></section>
+
 <section id="t-admin" class="hide"><h2>Administración</h2>
 <div class="bar" id="admtabs"><button class="p" data-a="mon">Monitoreo</button><button class="s" data-a="cua">Cuadros</button><button class="s" data-a="usr">Usuarios</button><button class="s" data-a="aud">Historial de cambios</button></div>
 <div id="adm" class="box"></div></section>
 </main>
 
-<dialog id="dlg"></dialog><div id="toast" class="toast hide"></div>
+<dialog id="dlg"></dialog>
+<dialog id="busy"><div class="bbox"><div class="spin"></div><b id="busyT">Procesando…</b><small>Por favor espera un momento y no cierres ni recargues la página.</small></div></dialog>
+<div id="toast" class="toast" popover="manual"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -98,14 +124,38 @@ async function api(fn, args) {
   if (!j.ok) throw new Error(j.error);
   return j.data;
 }
-const call = (fn, ...a) => api(fn, SIN_TOKEN.has(fn) ? a : [TOKEN, ...a]).catch(e => {
-  if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); else if (!SIN_TOKEN.has(fn)) toast(limpiaMsg(e.message));
-  throw e;
-});
-function toast(m) { const t = $('toast'); t.textContent = m; t.classList.remove('hide'); setTimeout(() => t.classList.add('hide'), 3500); }
 
-function load() {
-  return call('getData').then(r => {
+let busyN = 0;
+const MSG = { login: 'Verificando tus datos…', verificarCodigo: 'Verificando el código…', inicio: 'Cargando…', elegirCuadro: 'Abriendo el cuadro…', getData: 'Cargando los datos del cuadro…',
+  cambiarPassword: 'Guardando la contraseña…', saveVisit: 'Guardando la visita…', deleteVisit: 'Anulando la visita…', setEstado: 'Guardando el estado…', addRow: 'Guardando el registro en el Excel…',
+  updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminAgregarCuadro: 'Revisando el archivo…',
+  adminEditarCuadro: 'Guardando…', adminGuardarUsuario: 'Guardando el usuario…', adminResetPassword: 'Restableciendo la clave…', adminResumen: 'Cargando el monitoreo…', adminAuditoria: 'Buscando en el historial…',
+  adminUsuarios: 'Cargando usuarios…', adminCuadros: 'Cargando cuadros…', logout: 'Cerrando sesión…' };
+function busyOn(m) { busyN++; $('busyT').textContent = m || 'Procesando…'; if (busyN === 1 && !$('busy').open) $('busy').showModal(); }
+function busyOff() { busyN = Math.max(0, busyN - 1); if (!busyN && $('busy').open) $('busy').close(); }
+const busyTxt = m => { $('busyT').textContent = m; };
+$('busy').addEventListener('cancel', e => e.preventDefault());   // Esc no lo cierra
+window.addEventListener('beforeunload', e => { if (busyN > 0) { e.preventDefault(); e.returnValue = ''; } });   // avisa si intentan cerrar la página
+async function llama(silent, fn, a) {
+  if (!silent) busyOn(MSG[fn]);
+  try { return await api(fn, SIN_TOKEN.has(fn) ? a : [TOKEN, ...a]); }
+  catch (e) {
+    if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); else if (!SIN_TOKEN.has(fn)) toast(limpiaMsg(e.message));
+    throw e;
+  } finally { if (!silent) busyOff(); }
+}
+const call = (fn, ...a) => llama(false, fn, a);
+const callQ = (fn, ...a) => llama(true, fn, a);   // en silencio (actualización automática)
+
+let toastT;
+function toast(m) {
+  const t = $('toast'); t.textContent = m;
+  try { t.hidePopover(); } catch (e) {} try { t.showPopover(); } catch (e) {}
+  clearTimeout(toastT); toastT = setTimeout(() => { try { t.hidePopover(); } catch (e) {} }, 3500);
+}
+
+function load(silent) {
+  return (silent ? callQ : call)('getData').then(r => {
     ME = r.user; CFG = r.cfg;
     if (!r.cuadro && !soloAdm) { listo = false; return abrir(); }   // el cuadro ya no está disponible: volver a elegir
     D = r.rows; COLS = r.columnas || {}; ver = r.version; CUR = r.cuadro;
@@ -116,7 +166,7 @@ function load() {
     if (r.warnings && r.warnings.length) toast(r.warnings[0]);
   });
 }
-setInterval(() => { if (!TOKEN || !listo) return; api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) load(); }).catch(e => { if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); }); }, 20000);
+setInterval(() => { if (!TOKEN || !listo) return; api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) load(true); }).catch(e => { if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); }); }, 20000);
 /* ----- Sesión (usuario y contraseña) ----- */
 let TOKEN = '', PWD = '', LU = '', ME = null, USR = [], CUA = [], admTab = 'mon';
 try { TOKEN = sessionStorage.getItem('tk') || ''; } catch (e) {}
@@ -182,7 +232,7 @@ function pintaCuadros(r, volver) {
 }
 function resetVista() {   // limpia todo lo que dependía del cuadro anterior
   selSet.clear(); origen = null; rutaPts = []; rutaDone = new Set(); rutaInfo = ''; hojaSel = ''; rutaId++; placing = null; placingNew = false; placingOrigen = false; D = []; draft = {}; editKey = null;
-  $('q').value = ''; $('qe').value = ''; $('qn').value = ''; $('rta').innerHTML = ''; $('org').textContent = 'Salida: comisaría'; $('mres').innerHTML = ''; $('ms').value = ''; $('ban').classList.add('hide');
+  $('q').value = ''; $('qe').value = ''; $('qn').value = ''; $('rta').innerHTML = ''; $('orgSel').value = 'base'; selTxt(); $('mres').innerHTML = ''; $('ms').value = ''; $('ban').classList.add('hide');
   if (map) { if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers(); map.getContainer().classList.remove('placing'); map.setView([CFG.base.lat, CFG.base.lng], 13); }
 }
 async function elegir(id) {
@@ -429,12 +479,15 @@ function ubicar(k) {
 }
 function cancelar() { placing = null; placingNew = false; $('ban').classList.add('hide'); if (map) map.getContainer().classList.remove('placing'); }
 const gc = {};
+
 async function nomi(q) {   // Nominatim: máximo 1 consulta por segundo
+  busyOn('Buscando la dirección…');
   try {
     const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(limpiaDir(q) + ', Arequipa, Perú'))).json();
     return j.length ? { lat: +j[0].lat, lng: +j[0].lon } : null;
-  } catch (e) { return null; }
+  } catch (e) { return null; } finally { busyOff(); }
 }
+
 async function geoAprox(r) {   // sin coordenadas: se usa el texto de la dirección (ubicación aproximada)
   if (!(r.key in gc)) { await new Promise(s => setTimeout(s, 1100)); gc[r.key] = await nomi(r.direccion); }
   return gc[r.key];
@@ -467,10 +520,14 @@ function initMap() {
   window.addEventListener('resize', () => map.invalidateSize());
 }
 const mapList = () => D.filter(r => (r.dias != null && r.dias <= CFG.dias) || r.sinFecha).sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
-const tog = (k, on) => on ? selSet.add(k) : selSet.delete(k);
+
+const selTxt = () => { $('selN').textContent = selSet.size + (selSet.size === 1 ? ' visita marcada' : ' visitas marcadas'); };
+const tog = (k, on) => { on ? selSet.add(k) : selSet.delete(k); selTxt(); };
+
 const hav = (a, b) => { const R = 6371, t = x => x * Math.PI / 180, dl = t(b.lat - a.lat), dg = t(b.lng - a.lng); const h = Math.sin(dl / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
 
 function renderMapa() {
+  selTxt();
   initMap(); setTimeout(() => map.invalidateSize(), 50); grp.clearLayers(); mk = {};
   L.circleMarker([CFG.base.lat, CFG.base.lng], { radius: 10, color: '#1a5fd0', fillColor: '#1a5fd0', fillOpacity: .9 }).addTo(grp).bindPopup(esc(CFG.base.nombre));
   if (origen) L.circleMarker([origen.lat, origen.lng], { radius: 10, color: '#7b1fa2', fillColor: '#7b1fa2', fillOpacity: .9 }).addTo(grp).bindPopup('Mi ubicación');
@@ -501,13 +558,13 @@ async function verEnMapa(key) {
 
 /* Buscador libre del mapa */
 async function buscarLugar() {
-  const q = $('ms').value.trim(); if (!q) return;
-  $('mres').innerHTML = '<small>Buscando…</small>';
+    const q = $('ms').value.trim(); if (!q) return;
+  busyOn('Buscando la zona…');
   try {
     const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
     resBusq = j;
     $('mres').innerHTML = j.length ? '<small>Elige un resultado:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
-  } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; }
+    } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; } finally { busyOff(); }
 }
 function irResultado(i) {
   const x = resBusq[i]; if (!x) return; const ll = [+x.lat, +x.lon]; tmp.clearLayers();
@@ -521,7 +578,7 @@ function limpiarMapa() {
   rutaId++; cancelar(); placingOrigen = false;
   if (rutaL) { map.removeLayer(rutaL); rutaL = null; }
   rg.clearLayers(); tmp.clearLayers(); rutaPts = []; rutaDone = new Set(); rutaInfo = ''; resBusq = [];
-  selSet.clear(); origen = null; $('org').textContent = 'Salida: comisaría'; $('rta').innerHTML = ''; $('mres').innerHTML = ''; $('ms').value = '';
+  selSet.clear(); origen = null; $('orgSel').value = 'base'; selTxt(); $('rta').innerHTML = ''; $('mres').innerHTML = ''; $('ms').value = '';
   renderMapa(); map.setView([CFG.base.lat, CFG.base.lng], 13); toast('Mapa limpio');
 }
 
@@ -557,34 +614,44 @@ function pintaRuta() {
     (rutaDone.has(r.key) ? '<s>' + esc(r.victima) + '</s> ✔ visitada' : esc(r.victima) + (r.aprox ? ' <small>(aprox.)</small>' : '') + ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>') + '</li>').join('') +
     '</ol><small>' + esc(rutaInfo) + '</small>';
 }
+
+
 $('go').onclick = async () => {
-  const btn = $('go'), id = ++rutaId; btn.disabled = true; btn.textContent = 'Calculando…';
+  const btn = $('go'), id = ++rutaId; btn.disabled = true; busyOn('Calculando la ruta…');
   try {
+    if ($('orgSel').value === 'gps') {   // se toma la ubicación actual justo al iniciar
+      busyTxt('Obteniendo tu ubicación…');
+      try { const p = await gps(); origen = { lat: p.lat, lng: p.lng }; }
+      catch (e) { $('orgSel').value = 'base'; origen = null; toast('No se pudo obtener tu ubicación: se saldrá desde la comisaría'); }
+      renderMapa();
+    } else if ($('orgSel').value === 'base') origen = null;
     let pts = [], sin = [];
     for (const r of D.filter(x => selSet.has(x.key))) {
       if (r.lat) { pts.push(r); continue; }
-      toast('Buscando la dirección de ' + r.victima + '…');
+      busyTxt('Buscando la dirección de ' + r.victima + '…');
       const g = await geoAprox(r);
       if (g) pts.push(Object.assign({}, r, g, { aprox: true })); else sin.push(r.victima);
     }
     if (id !== rutaId) return;
     if (sin.length) toast('No se encontró la dirección de: ' + sin.join(', '));
     if (!pts.length) return toast('Marca al menos una visita con "Incluir en la ruta"');
+    busyTxt('Calculando la ruta…');
     if ($('ord').value === 'urg') pts.sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
     else { const o = []; let cur = origen || CFG.base; while (pts.length) { pts.sort((a, b) => hav(cur, a) - hav(cur, b)); cur = pts.shift(); o.push(cur); } pts = o; }
     rutaPts = pts; rutaDone = new Set(); rutaInfo = 'Calculando la ruta por calles…';
     if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers();
     pts.forEach((p, i) => L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="num">' + (i + 1) + '</div>', iconSize: [26, 26] }) }).addTo(rg).bindPopup((i + 1) + '. ' + esc(p.victima)));
     const c = [origen || CFG.base].concat(pts), recta = () => L.polyline(c.map(p => [p.lat, p.lng]), { color: '#1a5fd0', dashArray: '6', weight: 3 }).addTo(map);
-    rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();   // línea provisional mientras llega la ruta por calles
+    rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
     const rt = await pedirRuta(c);
     if (id !== rutaId) return;
     map.removeLayer(rutaL);
     if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: '#1a5fd0', weight: 5 } }).addTo(map); rutaInfo = (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min (sin tráfico)'; }
     else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
     map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
-  } finally { btn.disabled = false; btn.textContent = 'Calcular ruta'; }
+  } finally { btn.disabled = false; busyOff(); }
 };
+
 $('clr').onclick = limpiarMapa;
 $('msb').onclick = buscarLugar;
 $('ms').onkeydown = e => { if (e.key === 'Enter') buscarLugar(); };
@@ -662,15 +729,24 @@ function guardarForm() {
    .catch(() => { $('gn').disabled = false; });
 }
 window.addEventListener('unhandledrejection', e => e.preventDefault());   // los errores ya se muestran con toast
-function setOrigen(lat, lng) {
-  origen = { lat, lng }; $('org').textContent = 'Salida: mi ubicación';
+
+function setOrigen(lat, lng, tipo) {
+  origen = { lat, lng }; $('orgSel').value = tipo || 'punto';
   renderMapa(); map.flyTo([lat, lng], 15);
 }
-function pedirOrigen() { placing = null; placingOrigen = true; toast('No se pudo usar el GPS: haz clic en el mapa donde estás'); }
-$('gps').onclick = () => {
-  if (!navigator.geolocation) return pedirOrigen();
-  toast('Obteniendo tu ubicación…');
-  navigator.geolocation.getCurrentPosition(p => setOrigen(p.coords.latitude, p.coords.longitude), pedirOrigen, { enableHighAccuracy: true, timeout: 10000 });
+function pedirOrigen() { placingOrigen = true; $('orgSel').value = 'base'; origen = null; toast('No se pudo usar el GPS: haz clic en el mapa donde estás'); }
+const gps = () => new Promise((ok, ko) => {
+  if (!navigator.geolocation) return ko(new Error('sin gps'));
+  navigator.geolocation.getCurrentPosition(p => ok({ lat: p.coords.latitude, lng: p.coords.longitude }), ko, { enableHighAccuracy: true, timeout: 10000 });
+});
+$('orgSel').onchange = async () => {
+  const v = $('orgSel').value;
+  if (v === 'base') { origen = null; renderMapa(); return; }
+  if (v === 'gps') {
+    busyOn('Obteniendo tu ubicación…');
+    try { const p = await gps(); setOrigen(p.lat, p.lng, 'gps'); } catch (e) { pedirOrigen(); } finally { busyOff(); }
+  }
 };
+
 if (TOKEN) abrir().catch(() => { if (!$('lbox').innerHTML) mostrarLogin('No se pudo continuar. Ingresa de nuevo.'); }); else mostrarLogin();
 </script></body></html>

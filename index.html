@@ -1,1 +1,676 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#1d2b24;--mute:#66736c;--line:#dfe5e0;--brand:#24523f;--red:#b3261e;--amb:#b26a00;--ok:#2e7d4f}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 'Public Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;min-height:100vh}
+nav{width:200px;background:var(--brand);color:#fff;padding:18px 12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+nav h1{font-size:15px;margin:0 6px 14px;line-height:1.25}nav button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;color:#d7e6dd}
+nav button.on{background:#fff;color:var(--brand);font-weight:700}nav button:focus-visible{outline:2px solid #fff}
+nav small{margin-top:auto;font-size:12px;color:#b9cfc3;word-break:break-all}
+nav small#cuaN{margin-top:2px;color:#fff;font-weight:600;word-break:normal}
+main{flex:1;padding:22px;min-width:0}h2{margin:0 0 14px;font-size:22px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}.kpi b{font-size:30px;display:block}.kpi span{color:var(--mute);font-size:13px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}th{text-align:left;color:var(--mute);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid #eef1ee;vertical-align:top}tr.c{cursor:pointer}tr.c:hover{background:#f0f6f2}
+.b{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;color:#fff;white-space:nowrap}
+.b.r{background:var(--red)}.b.a{background:var(--amb)}.b.g{background:var(--ok)}.b.n{background:#777}
+mark{background:#ffe98a}input,select,textarea{font:inherit;padding:8px;border:1px solid #c9d2cc;border-radius:8px;background:#fff}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.bar input{flex:1;min-width:160px}
+button.p{background:var(--brand);color:#fff;border:0;padding:8px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+button.s{background:#fff;border:1px solid #c9d2cc;padding:6px 10px;border-radius:8px;font:inherit;cursor:pointer}
+button.p:disabled{opacity:.5}
+.map{display:grid;grid-template-columns:330px 1fr;gap:12px;height:calc(100vh - 90px)}
+#side{overflow:auto}#map{border-radius:10px;border:1px solid var(--line);min-height:380px}
+.it{padding:8px 0;border-bottom:1px solid #eef1ee;display:flex;gap:8px;align-items:flex-start}.it div{flex:1;min-width:0}.it small{color:var(--mute);display:block}
+dialog{border:0;border-radius:12px;max-width:720px;width:94vw;padding:20px}dialog::backdrop{background:#0006}
+.g2{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:14px}.g2 dt{color:var(--mute)}.g2 dd{margin:0}
+.xw{overflow:auto;max-height:calc(100vh - 230px);border:1px solid var(--line);border-radius:8px}
+table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
+.xt th{position:sticky;top:0;z-index:2;background:#eef2ef;color:#33413a;border-bottom:1px solid #c9d2cc;border-right:1px solid #dfe5e0;padding:5px 6px;white-space:nowrap;text-transform:uppercase;font-size:10.5px}
+.xt td{border-bottom:1px solid #d5dbd7;border-right:1px solid #e6ebe7;padding:4px 6px;vertical-align:middle;max-width:230px;overflow-wrap:anywhere;white-space:pre-line}
+.xt td.vv{background:#fff;border-left:1px solid #c9d2cc;white-space:nowrap}
+.hs{display:flex;gap:6px;margin-bottom:8px}.hs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.hide{display:none!important}.toast{position:fixed;bottom:16px;right:16px;background:#222;color:#fff;padding:10px 14px;border-radius:8px}
+.ban{background:#fff3cd;border:1px solid #e0c36a;padding:8px 12px;border-radius:8px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.leaflet-container.placing{cursor:crosshair!important}
+.num{background:#1a5fd0;color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;box-shadow:0 1px 4px #0006}
+.inc{font-size:12.5px;color:var(--mute);display:flex;gap:5px;align-items:center;margin-top:4px;cursor:pointer}
+.help{display:block;color:var(--mute);font-size:12.5px;margin:4px 0 8px}
+.it .p{white-space:nowrap;padding:6px 10px;font-size:13px}.it a{color:var(--brand);text-decoration:none}
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:2000;padding:16px;overflow:auto}
+.lbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px;width:min(380px,100%);display:flex;flex-direction:column;gap:12px}
+.lbox label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}.lbox input{width:100%}
+.lerr{background:#fde8e6;color:var(--red);padding:8px 10px;border-radius:8px;margin:0;font-size:13.5px}
+.brow{display:grid;grid-template-columns:50px 1fr 190px;gap:8px;align-items:center;font-size:13px;margin:3px 0}
+.bar2{background:#e8eee9;border-radius:6px;height:12px}.bar2 i{display:block;height:100%;background:var(--brand);border-radius:6px}
+#adm h4{margin:18px 0 6px}
+@media(max-width:800px){body{flex-direction:column}nav{width:auto;flex-direction:row;flex-wrap:wrap;padding:8px}nav h1,nav small{display:none}
+.map{grid-template-columns:1fr;height:auto}#map{height:55vh}#side{max-height:40vh}main{padding:12px}}
+</style></head><body>
+<div id="login"><div class="lbox" id="lbox"></div></div>
+<nav><h1>Gestión de visitas<br>Comisaría de la Familia</h1>
+<button data-t="inicio" class="on">Inicio</button><button data-t="exp">Hoja de expedientes</button><button data-t="mapa">Mapa y visitas</button>
+<button data-t="admin" id="navAdmin" class="hide">Administración</button>
+<small id="user"></small><small id="cuaN"></small><button id="bcua">Cambiar de cuadro</button><button id="bpass">Cambiar contraseña</button><button id="bout">Cerrar sesión</button></nav>
+<main>
+<section id="t-inicio"><h2>Inicio</h2><div class="kpis" id="kpis"></div>
+<div class="box"><b>Alertas de visita: las más urgentes</b><table id="urg"></table></div></section>
 
+<section id="t-exp" class="hide"><h2>Hoja de expedientes</h2>
+<div class="bar"><input id="q" placeholder="Búsqueda general"><input id="qe" placeholder="N.º de expediente"><input id="qn" placeholder="Nombres y apellidos"><button class="p" onclick="nuevo()">+ Nuevo registro</button></div>
+<div class="hs" id="hojas"></div><div class="box"><div id="cnt" style="color:var(--mute);margin-bottom:6px"></div><div class="xw"><table id="tab" class="xt"></table></div></div></section>
+
+<section id="t-mapa" class="hide"><h2>Mapa y visitas</h2><div id="ban" class="ban hide"></div>
+<div class="map"><div class="box" id="side">
+<div class="bar"><input id="ms" placeholder="Buscar lugar o dirección en el mapa" style="flex:1;min-width:0"><button class="s" id="msb">Buscar</button></div>
+<div id="mres"></div>
+<div class="bar"><button class="s" id="clr">🧹 Limpiar mapa</button></div>
+<b>Visitas por vencer y vencidas</b>
+<span class="help">Pulsa <b>✔ Registrar visita</b> cuando la visita ya se hizo (se marca como visitada). La casilla <b>Incluir en la ruta</b> solo sirve para armar el recorrido.</span>
+<div id="lst"></div>
+<div class="bar" style="margin-top:10px"><button class="s" id="gps">📍 Salir desde mi ubicación</button><span id="org" style="color:var(--mute);font-size:13px">Salida: comisaría</span></div>
+<div class="bar"><select id="ord"><option value="cerca">Más cercana primero</option><option value="urg">Más urgente primero</option></select><button class="p" id="go">Calcular ruta</button></div>
+<div id="rta"></div></div>
+<div id="map"></div></div></section>
+<section id="t-admin" class="hide"><h2>Administración</h2>
+<div class="bar" id="admtabs"><button class="p" data-a="mon">Monitoreo</button><button class="s" data-a="cua">Cuadros</button><button class="s" data-a="usr">Usuarios</button><button class="s" data-a="aud">Historial de cambios</button></div>
+<div id="adm" class="box"></div></section>
+</main>
+
+<dialog id="dlg"></dialog><div id="toast" class="toast hide"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let COLS = {}, hojaSel = '', origen = null, placingOrigen = false, placingNew = false, draft = {}, D = [], CFG = {}, ver = 0, map, grp, rutaL, placing = null, tab = 'inicio', selSet = new Set();
+let CUR = null, soloAdm = false, listo = false;   // CUR = cuadro abierto; soloAdm = el administrador entró sin cuadro; listo = la app ya está cargada (activa la actualización automática)
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SIN_TOKEN = new Set(['login', 'verificarCodigo']);
+const API_URL = 'https://script.google.com/macros/s/AKfycbykqY96cRaP_56oinqdQERzZPGIO6thRANJd3NQSzmyWQkCs-826ct7Uiu0zAqNQt1s/exec';
+async function api(fn, args) {
+  const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error);
+  return j.data;
+}
+const call = (fn, ...a) => api(fn, SIN_TOKEN.has(fn) ? a : [TOKEN, ...a]).catch(e => {
+  if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); else if (!SIN_TOKEN.has(fn)) toast(limpiaMsg(e.message));
+  throw e;
+});
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.remove('hide'); setTimeout(() => t.classList.add('hide'), 3500); }
+
+function load() {
+  return call('getData').then(r => {
+    ME = r.user; CFG = r.cfg;
+    if (!r.cuadro && !soloAdm) { listo = false; return abrir(); }   // el cuadro ya no está disponible: volver a elegir
+    D = r.rows; COLS = r.columnas || {}; ver = r.version; CUR = r.cuadro;
+    $('navAdmin').classList.toggle('hide', ME.rol !== 'Administrador');
+    $('user').textContent = (ME.nombre || ME.usuario) + ' · ' + ME.rol;
+    $('cuaN').textContent = CUR ? 'Cuadro: ' + CUR.nombre : 'Sin cuadro elegido';
+    $('login').classList.add('hide'); listo = true; render();
+    if (r.warnings && r.warnings.length) toast(r.warnings[0]);
+  });
+}
+setInterval(() => { if (!TOKEN || !listo) return; api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) load(); }).catch(e => { if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); }); }, 20000);
+/* ----- Sesión (usuario y contraseña) ----- */
+let TOKEN = '', PWD = '', LU = '', ME = null, USR = [], CUA = [], admTab = 'mon';
+try { TOKEN = sessionStorage.getItem('tk') || ''; } catch (e) {}
+const guardaTk = t => { TOKEN = t; try { t ? sessionStorage.setItem('tk', t) : sessionStorage.removeItem('tk'); } catch (e) {} };
+const limpiaMsg = m => String(m || '').replace(/^(Error|Exception):\s*/i, '');
+function mostrarLogin(msg) { guardaTk(''); PWD = ''; ME = null; D = []; CUR = null; soloAdm = false; listo = false; $('cuaN').textContent = ''; $('navAdmin').classList.add('hide'); document.querySelector('[data-t=inicio]').click(); $('login').classList.remove('hide'); pintaLogin('cred', msg); }
+function pintaLogin(modo, msg, extra) {
+  const m = msg ? '<p class="lerr">' + esc(msg) + '</p>' : '';
+  const cab = '<h2 style="margin:0">Sistema de Gestión de Visitas</h2><small style="color:var(--mute)">Comisaría PNP de la Familia</small>';
+  $('lbox').innerHTML = cab + m + ({
+    cred: '<label>Usuario<input id="lu" autocomplete="username" autocapitalize="none"></label><label>Contraseña<input id="lp" type="password" autocomplete="current-password"></label><button class="p" id="lgo">Ingresar</button>',
+    codigo: '<label>Código de 6 dígitos<input id="lc" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="p" id="lgo">Verificar</button><button class="s" id="lback">Volver</button>',
+    cambio: '<label>Nueva contraseña (mín. 8, con letras y números)<input id="n1" type="password" autocomplete="new-password"></label><label>Repite la contraseña<input id="n2" type="password" autocomplete="new-password"></label><button class="p" id="lgo">Guardar y entrar</button><button class="s" id="lback">Cerrar sesión</button>'
+  })[modo];
+  const go = { cred: doLogin, codigo: doCodigo, cambio: doCambio }[modo]; $('lgo').onclick = go;
+  document.querySelectorAll('#lbox input').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') go(); });
+  if ($('lback')) $('lback').onclick = modo === 'cambio' ? doLogout : () => mostrarLogin();
+  const f = $('lbox').querySelector('input'); if (f) f.focus();
+}
+async function conBoton(fn) { const b = $('lgo'), t = b.textContent; b.disabled = true; b.textContent = 'Un momento…'; try { await fn(); } finally { if ($('lgo')) { $('lgo').disabled = false; $('lgo').textContent = t; } } }
+function doLogin() {
+  LU = $('lu').value.trim(); PWD = $('lp').value;
+  if (!LU || !PWD) return pintaLogin('cred', 'Escribe tu usuario y contraseña.');
+  return conBoton(async () => {
+    try { const r = await call('login', LU, PWD); if (r.paso === 'codigo') pintaLogin('codigo', 'Enviamos un código a ' + r.correo + '. Revisa tu bandeja de entrada (y spam).'); else entrada(r); }
+    catch (e) { pintaLogin('cred', limpiaMsg(e.message)); }
+  });
+}
+function doCodigo() {
+  const c = $('lc').value.trim(); if (!c) return;
+  return conBoton(async () => { try { entrada(await call('verificarCodigo', LU, c)); } catch (e) { pintaLogin('codigo', limpiaMsg(e.message)); } });
+}
+function entrada(r) { guardaTk(r.token); ME = r.user; if (r.debe_cambiar) pintaLogin('cambio', 'Por seguridad, cambia tu contraseña temporal.'); else abrir(); }
+function doCambio() {
+  const a = $('n1').value, b = $('n2').value;
+  if (a !== b) return pintaLogin('cambio', 'Las contraseñas no coinciden.');
+  return conBoton(async () => { try { await call('cambiarPassword', PWD, a); PWD = ''; abrir(); } catch (e) { pintaLogin('cambio', limpiaMsg(e.message)); } });
+}
+
+/* ----- Elegir cuadro (después del login y cuando se pulsa "Cambiar de cuadro") ----- */
+async function abrir() {
+  let r; try { r = await call('inicio'); } catch (e) { return; }
+  ME = r.user;
+  if (r.cuadro) { soloAdm = false; return load(); }   // la sesión ya tenía un cuadro (p. ej. al recargar la página)
+  if (!r.cuadros.length && r.user.rol === 'Administrador') {   // todavía no hay cuadros: el administrador va directo a agregarlos
+    soloAdm = true; await load(); admTab = 'cua'; document.querySelector('[data-t=admin]').click(); return;
+  }
+  pintaCuadros(r, false);
+}
+function pintaCuadros(r, volver) {
+  listo = false; ME = r.user;
+  const adm = r.user.rol === 'Administrador';
+  const lista = r.cuadros.length
+    ? '<div style="display:flex;flex-direction:column;gap:8px">' + r.cuadros.map(c => '<button class="s cua" data-id="' + esc(c.id) + '" style="text-align:left;padding:12px"><b>' + esc(c.nombre) + '</b><br><small style="color:var(--mute)">' + (c.tipo === 'xlsx' ? 'Excel (.xlsx)' : 'Google Sheet') + (r.cuadro && r.cuadro.id === c.id ? ' · abierto ahora' : '') + '</small></button>').join('') + '</div>'
+    : '<p style="margin:0;color:var(--mute)">' + (adm ? 'Todavía no hay cuadros. Agrega el primero en Administración → Cuadros.' : 'Todavía no hay cuadros disponibles. Pide al administrador que agregue uno.') + '</p>';
+  $('lbox').innerHTML = '<h2 style="margin:0">¿Qué cuadro quieres ver?</h2><small style="color:var(--mute)">Sesión: ' + esc(r.user.nombre || r.user.usuario) + '</small>' + lista +
+    (adm && !r.cuadro ? '<button class="s" id="cadm">Solo administración</button>' : '') + (volver ? '<button class="s" id="cvolver">Volver</button>' : '') + '<button class="s" id="clo">Cerrar sesión</button>';
+  $('lbox').querySelectorAll('.cua').forEach(b => b.onclick = () => elegir(b.dataset.id));
+  if ($('cadm')) $('cadm').onclick = async () => { soloAdm = true; try { await load(); admTab = 'cua'; document.querySelector('[data-t=admin]').click(); } catch (e) {} };
+  if ($('cvolver')) $('cvolver').onclick = () => { $('login').classList.add('hide'); listo = true; };
+  $('clo').onclick = doLogout;
+  $('login').classList.remove('hide');
+}
+function resetVista() {   // limpia todo lo que dependía del cuadro anterior
+  selSet.clear(); origen = null; rutaPts = []; rutaDone = new Set(); rutaInfo = ''; hojaSel = ''; rutaId++; placing = null; placingNew = false; placingOrigen = false; D = []; draft = {}; editKey = null;
+  $('q').value = ''; $('qe').value = ''; $('qn').value = ''; $('rta').innerHTML = ''; $('org').textContent = 'Salida: comisaría'; $('mres').innerHTML = ''; $('ms').value = ''; $('ban').classList.add('hide');
+  if (map) { if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers(); map.getContainer().classList.remove('placing'); map.setView([CFG.base.lat, CFG.base.lng], 13); }
+}
+async function elegir(id) {
+  document.querySelectorAll('#lbox .cua').forEach(b => b.disabled = true);
+  try { await call('elegirCuadro', id); soloAdm = false; resetVista(); document.querySelector('[data-t=inicio]').click(); await load(); }
+  catch (e) { document.querySelectorAll('#lbox .cua').forEach(b => b.disabled = false); }
+}
+$('bcua').onclick = async () => { try { pintaCuadros(await call('inicio'), true); } catch (e) {} };
+async function doLogout() { try { await call('logout'); } catch (e) {} mostrarLogin(); }
+$('bout').onclick = doLogout;
+$('bpass').onclick = () => {
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Cambiar contraseña</h3><div style="display:grid;gap:8px"><label>Contraseña actual<input id="c0" type="password" style="width:100%"></label><label>Nueva contraseña (mín. 8, con letras y números)<input id="c1" type="password" style="width:100%"></label><label>Repite la nueva<input id="c2" type="password" style="width:100%"></label></div><div class="bar" style="margin-top:12px"><button class="p" id="cok">Guardar</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  $('cok').onclick = () => {
+    if ($('c1').value !== $('c2').value) return toast('Las contraseñas nuevas no coinciden');
+    $('cok').disabled = true;
+    call('cambiarPassword', $('c0').value, $('c1').value).then(() => { $('dlg').close(); toast('Contraseña actualizada'); }).catch(() => { $('cok').disabled = false; });
+  };
+  $('dlg').showModal();
+};
+
+/* ----- Administración ----- */
+document.querySelectorAll('#admtabs button').forEach(b => b.onclick = () => { admTab = b.dataset.a; renderAdmin(); });
+function renderAdmin() {
+  if (!ME || ME.rol !== 'Administrador') return;
+  document.querySelectorAll('#admtabs button').forEach(b => { b.className = b.dataset.a === admTab ? 'p' : 's'; });
+  ({ mon: admMon, cua: admCua, usr: admUsr, aud: admAud })[admTab]();
+}
+const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', AGREGAR_CUADRO: 'Cuadro agregado', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido' };
+const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada', CODIGO_ENVIADO: 'Código enviado', CODIGO_INCORRECTO: 'Código incorrecto' };
+async function admMon() {
+  $('adm').innerHTML = '<small>Cargando…</small>';
+  const r = await call('adminResumen').catch(() => null); if (!r) return;
+  const mx = Math.max(1, ...r.porDia.map(d => d.acciones));
+  const kp = [['Usuarios activos', r.usuarios.activos + ' / ' + r.usuarios.total], ['Conectados ahora', r.conectados.length], ['Accesos fallidos (24 h)', r.fallidos24], ['Expedientes', r.exp.total],
+    ['Visitas vencidas', r.exp.vencidas], ['Por vencer', r.exp.porVencer], ['Sin fecha de visita', r.exp.sinFecha], ['Sin coordenadas', r.exp.sinCoord]];
+  $('adm').innerHTML = '<p style="margin-top:0">Cuadro abierto: <b>' + esc(r.cuadro || 'ninguno') + '</b> (los datos de expedientes son de este cuadro) · <a href="' + esc(r.datosUrl) + '" target="_blank" rel="noopener">Abrir el Excel de datos del aplicativo</a></p>' +
+    '<div class="kpis">' + kp.map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('') + '</div>' +
+    '<h4>Actividad de los últimos 7 días</h4>' + r.porDia.map(d => '<div class="brow"><span>' + d.dia.slice(5) + '</span><div class="bar2"><i style="width:' + Math.round(d.acciones / mx * 100) + '%"></i></div><span>' + d.acciones + ' acciones · ' + d.visitas + ' visitas</span></div>').join('') +
+    '<h4>Actividad por usuario (30 días)</h4><table><tr><th>Usuario</th><th>Acciones</th><th>Visitas</th><th>Ediciones</th><th>Registros nuevos</th></tr>' +
+    (r.porUsuario.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + u.total + '</td><td>' + u.visitas + '</td><td>' + u.ediciones + '</td><td>' + u.nuevos + '</td></tr>').join('') || '<tr><td colspan="5">Sin actividad</td></tr>') + '</table>' +
+    '<h4>Conectados ahora</h4><p>' + (r.conectados.map(esc).join(', ') || '—') + '</p>' +
+    '<h4>Estado de los expedientes</h4><p>' + (Object.entries(r.exp.estados).map(([k, v]) => esc(k) + ': <b>' + v + '</b>').join(' · ') || '—') + '</p>' +
+    '<h4>Accesos recientes</h4><table><tr><th>Fecha</th><th>Usuario</th><th>Evento</th></tr>' + r.accesos.map(a => '<tr><td>' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(EVT[a.evento] || a.evento) + '</td></tr>').join('') + '</table>';
+}
+/* Cuadros (Excel que ve el personal) */
+async function admCua() {
+  $('adm').innerHTML = '<small>Cargando…</small>';
+  const cs = await call('adminCuadros').catch(() => null); if (!cs) return; CUA = cs;
+  $('adm').innerHTML = '<div class="bar"><button class="p" onclick="formCuadro()">+ Agregar cuadro</button></div>' +
+    '<span class="help">Cada cuadro es un Excel (.xlsx) o un Google Sheet de la comisaría. Al ingresar, cada usuario elige cuál ver. El archivo debe estar compartido como <b>Editor</b> con la cuenta que publica la aplicación. Un cuadro desactivado deja de aparecer, pero sus visitas y datos se conservan.</span>' +
+    (cs.length ? '<table><tr><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Agregado</th><th></th></tr>' + cs.map(c => '<tr><td><b>' + esc(c.nombre) + '</b></td><td>' + (c.tipo === 'xlsx' ? 'Excel (.xlsx)' : 'Google Sheet') + '</td><td>' + (c.activo ? '<span class="b g">disponible</span>' : '<span class="b n">desactivado</span>') +
+      '</td><td>' + esc(c.agregado_en) + '<br><small style="color:var(--mute)">' + esc(c.agregado_por) + '</small></td><td style="white-space:nowrap"><button class="s" onclick="formCuadro(\'' + esc(c.id) + '\')">Editar</button> <a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="' + esc(c.url) + '" target="_blank" rel="noopener">Abrir archivo</a></td></tr>').join('') + '</table>' : '<p>Aún no hay cuadros agregados.</p>');
+}
+function formCuadro(id) {
+  const c = id ? CUA.find(x => x.id === id) : null, ed = !!c, st = 'style="width:100%"';
+  $('dlg').innerHTML = '<h3 style="margin-top:0">' + (ed ? 'Editar cuadro' : 'Agregar cuadro') + '</h3><div style="display:grid;gap:8px">' +
+    '<label>Nombre (lo verán los usuarios)<input id="cn" ' + st + ' value="' + esc(c ? c.nombre : '') + '" placeholder="Ej.: Cuadro 2026"></label>' +
+    (ed ? '<label><input type="checkbox" id="ca" ' + (c.activo ? 'checked' : '') + '> Disponible para los usuarios</label>'
+        : '<label>Enlace del archivo (Drive o Google Sheets)<input id="cl" ' + st + ' placeholder="https://drive.google.com/file/d/…  o  https://docs.google.com/spreadsheets/d/…"></label><small style="color:var(--mute)">Se revisará el archivo antes de agregarlo (puede tardar unos segundos).</small>') +
+    '</div><div class="bar" style="margin-top:12px"><button class="p" id="cok">' + (ed ? 'Guardar' : 'Revisar y agregar') + '</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  $('cok').onclick = () => {
+    const t = $('cok').textContent; $('cok').disabled = true; $('cok').textContent = ed ? 'Guardando…' : 'Revisando el archivo…';
+    const p = ed ? call('adminEditarCuadro', { id, nombre: $('cn').value, activo: $('ca').checked }) : call('adminAgregarCuadro', { nombre: $('cn').value, link: $('cl').value });
+    p.then(r => { if (ed) { $('dlg').close(); toast('Cuadro actualizado'); } else resultadoCuadro(r); admCua(); })
+     .catch(() => { $('cok').disabled = false; $('cok').textContent = t; });
+  };
+  if (!$('dlg').open) $('dlg').showModal();
+}
+function resultadoCuadro(r) {
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Cuadro agregado</h3><p>Se leyó <b>' + esc(r.nombre) + '</b> (' + (r.tipo === 'xlsx' ? 'Excel .xlsx' : 'Google Sheet') + '): <b>' + r.expedientes + '</b> expedientes en <b>' + r.hojas + '</b> hojas.</p>' +
+    (r.soloLectura ? '<p class="lerr">Atención: la cuenta que publica la aplicación parece tener solo lectura sobre este archivo. Compártelo como Editor o no se podrá guardar nada.</p>' : '') +
+    (r.avisos.length ? '<p><b>Avisos:</b></p><ul>' + r.avisos.map(a => '<li>' + esc(a) + '</li>').join('') + '</ul>' : '') +
+    '<p style="color:var(--mute)">Para verlo, usa «Cambiar de cuadro» (abajo a la izquierda).</p><div class="bar"><button class="p" onclick="$(\'dlg\').close()">Listo</button></div>';
+}
+async function admUsr() {
+  $('adm').innerHTML = '<small>Cargando…</small>';
+  const us = await call('adminUsuarios').catch(() => null); if (!us) return; USR = us;
+  $('adm').innerHTML = '<div class="bar"><button class="p" onclick="formUsuario()">+ Nuevo usuario</button></div><table><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr>' +
+    us.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.rol) + '</td><td>' + (u.activo ? '<span class="b g">activo</span>' : '<span class="b n">inactivo</span>') + (u.debe_cambiar ? ' <span class="b a">clave temporal</span>' : '') + '</td><td>' + esc(u.ultimo || '—') +
+      '</td><td style="white-space:nowrap"><button class="s" onclick="formUsuario(\'' + esc(u.usuario) + '\')">Editar</button> <button class="s" onclick="resetClave(\'' + esc(u.usuario) + '\')">Restablecer clave</button></td></tr>').join('') + '</table>';
+}
+function formUsuario(usuario) {
+  const u = usuario ? USR.find(x => x.usuario === usuario) : null, ed = !!u, st = 'style="width:100%"';
+  $('dlg').innerHTML = '<h3 style="margin-top:0">' + (ed ? 'Editar usuario' : 'Nuevo usuario') + '</h3><div style="display:grid;gap:8px">' +
+    '<label>Usuario (para ingresar)<input id="fu" ' + st + ' value="' + esc(u ? u.usuario : '') + '" ' + (ed ? 'readonly' : '') + ' autocapitalize="none"></label>' +
+    '<label>Nombre completo<input id="fn" ' + st + ' value="' + esc(u ? u.nombre : '') + '"></label>' +
+    '<label>Correo (Gmail o @ucsp.edu.pe; recibe el código de acceso)<input id="fc" type="email" ' + st + ' value="' + esc(u ? u.correo : '') + '" placeholder="nombre@gmail.com o nombre@ucsp.edu.pe"></label>' +
+    '<label>Rol<select id="fr" ' + st + '><option' + (u && u.rol === 'Personal' ? ' selected' : '') + '>Personal</option><option' + (u && u.rol === 'Administrador' ? ' selected' : '') + '>Administrador</option></select></label>' +
+    (ed ? '<label><input type="checkbox" id="fa" ' + (u.activo ? 'checked' : '') + '> Cuenta activa</label>' : '<small style="color:var(--mute)">Se generará una contraseña temporal que el usuario deberá cambiar al entrar.</small>') +
+    '</div><div class="bar" style="margin-top:12px"><button class="p" id="fok">Guardar</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  $('fok').onclick = () => {
+    $('fok').disabled = true;
+    call('adminGuardarUsuario', { nuevo: !ed, usuario: $('fu').value, nombre: $('fn').value, correo: $('fc').value, rol: $('fr').value, activo: ed ? $('fa').checked : true })
+      .then(r => { if (r.temporal) mostrarTemporal($('fu').value.trim().toLowerCase(), r.temporal); else { $('dlg').close(); toast('Usuario actualizado'); } admUsr(); })
+      .catch(() => { $('fok').disabled = false; });
+  };
+  if (!$('dlg').open) $('dlg').showModal();
+}
+function mostrarTemporal(u, p) {
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Contraseña temporal</h3><p>Entrega estos datos al usuario. <b>Esta contraseña no se volverá a mostrar</b>; deberá cambiarla en su primer ingreso.</p>' +
+    '<div class="box" style="background:#f6faf7"><div>Usuario: <b>' + esc(u) + '</b></div><div style="margin-top:6px">Contraseña: <input readonly value="' + esc(p) + '" onclick="this.select()" style="font-family:monospace;font-size:16px;width:12em"></div></div>' +
+    '<div class="bar" style="margin-top:12px"><button class="p" onclick="$(\'dlg\').close()">Listo</button></div>';
+  if (!$('dlg').open) $('dlg').showModal();
+}
+function resetClave(u) { if (confirm('¿Restablecer la contraseña de "' + u + '"? Se cerrarán sus sesiones abiertas.')) call('adminResetPassword', u).then(r => { mostrarTemporal(u, r.temporal); admUsr(); }); }
+async function admAud() {
+  if (!USR.length) USR = await call('adminUsuarios').catch(() => []);
+  $('adm').innerHTML = '<div class="bar"><select id="au"><option value="">Todos los usuarios</option>' + USR.map(u => '<option>' + esc(u.usuario) + '</option>').join('') + '</select>' +
+    '<select id="aa"><option value="">Todas las acciones</option>' + Object.entries(ACC).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join('') + '</select>' +
+    '<input id="at" placeholder="Buscar (expediente, texto…)"><label>Desde <input type="date" id="ad"></label><label>Hasta <input type="date" id="ah"></label><button class="p" id="ab">Buscar</button></div><div id="audres"></div>';
+  $('ab').onclick = buscarAud; buscarAud();
+}
+async function buscarAud() {
+  $('audres').innerHTML = '<small>Buscando…</small>';
+  const r = await call('adminAuditoria', { usuario: $('au').value, accion: $('aa').value, texto: $('at').value, desde: $('ad').value, hasta: $('ah').value }).catch(() => null); if (!r) return;
+  $('audres').innerHTML = '<small>' + r.length + ' registros' + (r.length === 300 ? ' (se muestran los 300 más recientes)' : '') + '</small><table><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Expediente / cuadro</th><th>Detalle (antes → después)</th></tr>' +
+    r.map(a => '<tr><td style="white-space:nowrap">' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(ACC[a.accion] || a.accion) + '</td><td>' + esc(a.key) + '</td><td>' + esc(String(a.detalle).replace(/ -> /g, ' → ')) + '</td></tr>').join('') + '</table>';
+}
+
+
+
+function badge(r) {
+  if (r.estado !== 'Vigente') return '<span class="b n">' + esc(r.estado) + '</span>';
+  if (r.sinFecha) return '<span class="b n">falta fecha de última visita</span>';
+  if (r.dias == null) return '';
+  if (r.dias < 0) return '<span class="b r">vencida ' + (-r.dias) + ' d</span>';
+  if (r.dias <= CFG.dias) return '<span class="b a">vence en ' + r.dias + ' d</span>';
+  return '<span class="b g">' + r.dias + ' d</span>';
+}
+const urgent = () => D.filter(r => r.dias != null && r.dias <= CFG.dias).sort((a, b) => a.dias - b.dias);
+const hl = (t, q) => { t = esc(t); if (!q) return t; const e = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return t.replace(new RegExp(e, 'gi'), m => '<mark>' + m + '</mark>'); };
+
+document.querySelectorAll('nav button[data-t]').forEach(b => b.onclick = () => {
+  tab = b.dataset.t; document.querySelectorAll('nav button[data-t]').forEach(x => x.classList.toggle('on', x === b));
+  ['inicio', 'exp', 'mapa', 'admin'].forEach(t => $('t-' + t).classList.toggle('hide', t !== tab)); render(); if (tab === 'admin') renderAdmin();
+});
+
+function render() {
+  const v = D.filter(r => r.estado === 'Vigente');
+  $('kpis').innerHTML = [['Vigentes', v.length], ['Visitas vencidas', v.filter(r => r.dias < 0).length],
+    ['Por vencer (≤ ' + CFG.dias + ' d)', v.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', v.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.filter(r => r.sinFecha).length]]
+    .map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('');
+  $('urg').innerHTML = CUR ? '<tr><th>Nro</th><th>Víctima</th><th>Dirección</th><th>Expediente</th><th>Riesgo</th><th>Última visita</th><th>Plazo</th></tr>' +
+    urgent().slice(0, 15).map(r => '<tr class="c" onclick="openExp(\'' + esc(r.key) + '\')"><td>' + esc(r.nro) + '</td><td>' + esc(r.victima) + '</td><td>' + esc(r.direccion) + '</td><td>' + esc(r.expediente) + '</td><td>' + esc(r.riesgo) + '</td><td>' + (r.ultima || '—') + '</td><td>' + badge(r) + '</td></tr>').join('')
+    : '<tr><td>No hay un cuadro abierto. Usa «Cambiar de cuadro» (abajo a la izquierda).</td></tr>';
+  if (tab === 'exp') renderTab();
+  if (tab === 'mapa') renderMapa();
+}
+
+/* ----- Hoja de expedientes ----- */
+['q', 'qe', 'qn'].forEach(id => $(id).oninput = renderTab);
+const fg_ = h => { const r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16); return (0.299 * r + 0.587 * g + 0.114 * b) < 110 ? '#fff' : '#111'; };
+function renderTab() {
+  const hojas = Object.keys(COLS); if (!hojas.length) { $('tab').innerHTML = ''; $('hojas').innerHTML = ''; $('cnt').textContent = ''; return; }
+  if (hojas.indexOf(hojaSel) < 0) hojaSel = hojas[0];
+  $('hojas').innerHTML = hojas.map(h => '<button class="s' + (h === hojaSel ? ' on' : '') + '" data-h="' + esc(h) + '">' + esc(h) + ' (' + D.filter(r => r.hoja === h).length + ')</button>').join('');
+  $('hojas').querySelectorAll('button').forEach(b => b.onclick = () => { hojaSel = b.dataset.h; renderTab(); });
+  const q = $('q').value.trim(), qe = $('qe').value.trim(), qn = $('qn').value.trim(), L = s => String(s).toLowerCase();
+  const f = D.filter(r => r.hoja === hojaSel && (!q || L(Object.values(r).filter(x => typeof x === 'string').join(' ') + ' ' + r.pt).includes(L(q))) &&
+    (!qe || L(r.expediente).includes(L(qe)) || L(r.nro) === L(qe)) && (!qn || L(r.victima + ' ' + r.pt).includes(L(qn))));
+  const cols = COLS[hojaSel], MAXF = 500, vis = f.slice(0, MAXF);
+  const usa = cols.map((c, i) => vis.some(r => r.cel[i] || r.participantes.some(p => p.cel[i])));   // columnas totalmente vacías no se muestran
+  const ci = cols.map((c, i) => i).filter(i => usa[i]);
+  $('cnt').textContent = f.length + ' registros' + (f.length > MAXF ? ' (se muestran ' + MAXF + ')' : '');
+  const td = (r, i, cel, bg, rowKey) => { const b = bg[i], st = b ? ' style="background:#' + b + ';color:' + fg_(b) + '"' : '', t = cols[i].k === 'victima' ? hl(cel[i], qn || q) : cols[i].k === 'expediente' ? hl(cel[i], qe || q) : esc(cel[i]); return '<td' + st + '>' + t + '</td>'; };
+  let h = '<tr>' + ci.map(i => '<th>' + esc(cols[i].h) + '</th>').join('') + '<th class="vv">Visita vence</th></tr>';
+  vis.forEach(r => {
+    const k = esc(r.key);
+    h += '<tr class="c" onclick="openExp(\'' + k + '\')">' + ci.map(i => td(r, i, r.cel, r.bg)).join('') + '<td class="vv">' + badge(r) + '</td></tr>';
+    r.participantes.forEach(p => { h += '<tr class="c" onclick="openExp(\'' + k + '\')">' + ci.map(i => td(r, i, p.cel, p.bg)).join('') + '<td class="vv"></td></tr>'; });
+  });
+  $('tab').innerHTML = h;
+}
+
+/* ----- Detalle del expediente ----- */
+function openExp(key) {
+  const r = D.find(x => x.key === key); if (!r) return;
+  const hoy = hoyLocal();
+  const F = [['Víctima', r.victima], ['Edad / sexo', r.edad + ' / ' + r.sexo], ['Celular', r.celular], ['DNI', r.dni], ['Dirección', r.direccion], ['Expediente', r.expediente], ['Fecha de registro', r.fReg], ['Fecha de resolución', r.fRes], ['Tipo de violencia', r.violencia], ['Agresor', r.agresor], ['Riesgo', r.riesgo], ['Mes de informe', r.mes], ['Vigencia', r.vigencia], ['B.P (botón de pánico)', r.bp], ['Coordenadas', r.lat ? r.lat.toFixed(6) + ', ' + r.lng.toFixed(6) : 'Sin coordenadas (se usa la dirección)'], ['Próxima visita', r.proxima]];
+  const pt = r.participantes.length ? '<h4>Otras personas del expediente</h4><table>' + r.participantes.map(p => '<tr><td>' + esc(p.nombre) + '</td><td>' + esc(p.edad) + ' ' + esc(p.sexo) + '</td><td>' + esc(p.dni) + '</td><td>' + esc(p.celular) + '</td><td>' + esc(p.direccion) + '</td></tr>').join('') + '</table>' : '';
+  const ex = Object.keys(r.extras).length ? '<details><summary>Otras columnas</summary><dl class="g2">' + Object.entries(r.extras).map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></details>' : '';
+  const vs = r.visitas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).map(v => '<tr><td>' + (v.fecha || '—') + '</td><td>' + esc(v.tipo) + '</td><td>' + esc(v.texto || v.obs || '') + '</td><td>' + (v.tipo === 'Excel' ? '' : '<button class="s" onclick="anular(\'' + esc(v.id) + '\')">Anular</button>') + '</td></tr>').join('');
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Nro ' + esc(r.nro) + ' · ' + esc(r.hoja) + ' ' + badge(r) + '</h3><dl class="g2">' + F.map(x => '<dt>' + x[0] + '</dt><dd>' + esc(x[1] || '—') + '</dd>').join('') + '</dl>' + pt + ex +
+    '<h4>Visitas</h4><table>' + (vs || '<tr><td>Sin visitas registradas</td></tr>') + '</table>' +
+    '<div class="bar" style="margin-top:10px"><input type="date" id="vf" value="' + hoy + '" max="' + hoy + '"><select id="vt"><option>Presencial</option><option>Telefónica</option></select><input id="vo" placeholder="Lo que refiere (opcional)" style="flex:1;min-width:160px"><button class="p" onclick="visita(\'' + esc(key) + '\')">Registrar visita</button></div>' +
+    '<div class="bar"><select id="es"><option>Vigente</option><option>Derivada</option><option>Acumulada</option><option>Culminada</option><option>Sin efecto</option><option>Archivada</option></select><input id="rs" placeholder="Resolución (si queda sin efecto)"><button class="s" onclick="estado(\'' + esc(key) + '\')">Cambiar estado</button></div>' +
+    '<div class="bar"><button class="s" onclick="editar(\'' + esc(key) + '\')">Editar datos</button><button class="s" onclick="verEnMapa(\'' + esc(key) + '\')">Ver en el mapa</button>' + (CFG.word ? '<button class="s" onclick="abrirExport(\'' + esc(key) + '\')">Generar informe y oficio</button>' : '') + '<button class="s" onclick="$(\'dlg\').close()" style="margin-left:auto">Cerrar</button></div>';
+  $('es').value = r.estado; if (!$('dlg').open) $('dlg').showModal();
+}
+const act = (p, msg) => p.then(() => { toast(msg); return load(); });
+function visita(k) { act(call('saveVisit', k, $('vf').value, $('vt').value, $('vo').value), 'Visita registrada').then(() => openExp(k)); }
+function anular(id) { if (confirm('¿Anular esta visita?')) act(call('deleteVisit', id), 'Visita anulada').then(() => $('dlg').close()); }
+function estado(k) { act(call('setEstado', k, $('es').value, $('rs').value), 'Estado actualizado').then(() => openExp(k)); }
+/* ----- Generar informe y oficio (Word) ----- */
+let EX = null;
+const dl = f => { const a = document.createElement('a'); a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + f.b64; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); };
+function filaAct(v) {
+  v = v || { fecha: hoyLocal(), tipo: 'Telefónica', refiere: '' };
+  return '<div class="bar act" style="margin:4px 0;align-items:center"><input type="checkbox" class="ac" checked><input type="date" class="af" value="' + esc(v.fecha) + '" max="' + hoyLocal() + '">' +
+    '<select class="at"><option' + (v.tipo === 'Telefónica' ? ' selected' : '') + '>Telefónica</option><option' + (v.tipo === 'Presencial' ? ' selected' : '') + '>Presencial</option></select>' +
+    '<input class="ar" placeholder="Lo que refiere" value="' + esc(v.refiere) + '" style="flex:2;min-width:200px"></div>';
+}
+function abrirExport(key) {
+  call('exportDefaults', key).then(d => {
+    EX = { key, d };
+    const L = (t, h) => '<label style="font-size:13px;color:var(--mute)">' + t + h + '</label>', I = (id, v) => '<input id="x_' + id + '" value="' + esc(v || '') + '" style="width:100%">';
+    $('dlg').innerHTML = '<h3 style="margin-top:0">Generar informe y oficio</h3>' +
+      '<small class="help" style="margin-top:0">Se crean dos archivos Word editables a partir de las plantillas de la comisaría. Revisa los datos: lo que dejes vacío saldrá como XXXX para completarlo en Word.</small>' +
+      '<div class="bar"><label><input type="checkbox" id="x_inf" ' + (d.plantillas.informe ? 'checked' : 'disabled') + '> Informe</label><label><input type="checkbox" id="x_ofi" ' + (d.plantillas.oficio ? 'checked' : 'disabled') + '> Oficio</label></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">' +
+      L('N.º de informe', I('in', '')) + L('N.º de oficio', I('on', '')) + L('Fecha del documento', I('fe', d.fecha)) + L('Juzgado (número)', I('ju', d.juez)) +
+      L('Riesgo', I('ri', d.riesgo)) + L('Celular de la víctima', I('ce', d.celular)) + L('A favor de', I('fa', d.favor)) + L('En contra de', I('co', d.contra)) + '</div>' +
+      '<label style="font-size:13px;color:var(--mute);display:block;margin-top:8px">Domicilio' + I('do', d.domicilio) + '</label>' +
+      '<label style="font-size:13px;color:var(--mute);display:block;margin-top:8px">Expedientes (uno por línea: el primero es el principal; los demás, acumulados)<textarea id="x_ex" rows="3" style="width:100%">' + esc(d.expedientes.join('\n')) + '</textarea></label>' +
+      '<h4 style="margin:12px 0 2px">Actuaciones a incluir (visitas y llamadas)</h4><div id="x_acts">' + (d.visitas.length ? d.visitas.map(filaAct).join('') : '<small>No hay visitas registradas en la aplicación: agrega las actuaciones con el botón.</small>') + '</div>' +
+      '<div class="bar"><button class="s" onclick="if(!document.querySelector(\'#x_acts .act\'))$(\'x_acts\').innerHTML=\'\';$(\'x_acts\').insertAdjacentHTML(\'beforeend\',filaAct())">+ Agregar actuación</button></div>' +
+      '<label style="font-size:13px;color:var(--mute);display:block;margin-top:8px">Otra actuación (opcional, texto completo; p. ej. una derivación)<textarea id="x_ot" rows="2" style="width:100%"></textarea></label>' +
+      '<label style="font-size:13px;color:var(--mute);display:block;margin-top:8px">Anexo adicional (opcional)' + I('an', '') + '</label>' +
+      '<div class="bar" style="margin-top:12px"><button class="p" id="x_go" onclick="generarDocs()">Generar Word</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+    if (!$('dlg').open) $('dlg').showModal();
+  });
+}
+async function generarDocs() {
+  const v = id => $('x_' + id).value.trim();
+  const acts = [...document.querySelectorAll('#x_acts .act')].filter(r => r.querySelector('.ac').checked).map(r => ({ fecha: r.querySelector('.af').value, tipo: r.querySelector('.at').value, refiere: r.querySelector('.ar').value.trim() })).filter(a => a.fecha);
+  const d = { informe: $('x_inf').checked, oficio: $('x_ofi').checked, informeN: v('in'), oficioN: v('on'), fecha: v('fe'), anio: (EX.d.anio || ''), juez: v('ju'), riesgo: v('ri'), celular: v('ce'), favor: v('fa'), contra: v('co'), domicilio: v('do'),
+    victima: EX.d.victima, expedientes: v('ex').split(/\r?\n/).map(s => s.trim()).filter(Boolean), visitas: acts, otra: v('ot'), anexoOtro: v('an') };
+  const m = /(\d{4})\.?\s*$/.exec(d.fecha); if (m) d.anio = m[1];
+  $('x_go').disabled = true; $('x_go').textContent = 'Generando…';
+  try { const fs = await call('generarDocumentos', EX.key, d); for (const f of fs) { dl(f); await new Promise(r => setTimeout(r, 600)); } $('dlg').close(); toast('Word generado: ' + fs.map(f => f.name).join(', ')); }
+  catch (e) { $('x_go').disabled = false; $('x_go').textContent = 'Generar Word'; }
+}
+const limpiaDir = s => String(s).replace(/\b(MZ|LT|LTE|LOTE|MANZANA)\b\.?\s*[\w\-]+/gi, '').replace(/^\s*(ASOC(IACION|\.)?|AA\.?HH\.?|URB\.?)\s*/i, '').replace(/\s+/g, ' ').trim();
+function ubicar(k) {
+  const r = D.find(x => x.key === k); if (!r) return;
+  if ($('dlg').open) $('dlg').close();
+  document.querySelector('[data-t=mapa]').click();      // abre la pestaña y crea el mapa
+  placing = k;
+  $('ban').classList.remove('hide');
+  $('ban').innerHTML = '<span>Haz clic sobre la casa de <b>' + esc(r.victima) + '</b></span><input id="gq" style="flex:1;min-width:150px" placeholder="Buscar calle o zona"><button class="s" onclick="geo($(\'gq\').value)">Buscar</button><button class="s" onclick="cancelar()">Cancelar</button>';
+  $('gq').value = limpiaDir(r.direccion);
+  map.getContainer().classList.add('placing');
+  if (r.lat) map.flyTo([r.lat, r.lng], 18); else geo($('gq').value);
+}
+function cancelar() { placing = null; placingNew = false; $('ban').classList.add('hide'); if (map) map.getContainer().classList.remove('placing'); }
+const gc = {};
+async function nomi(q) {   // Nominatim: máximo 1 consulta por segundo
+  try {
+    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(limpiaDir(q) + ', Arequipa, Perú'))).json();
+    return j.length ? { lat: +j[0].lat, lng: +j[0].lon } : null;
+  } catch (e) { return null; }
+}
+async function geoAprox(r) {   // sin coordenadas: se usa el texto de la dirección (ubicación aproximada)
+  if (!(r.key in gc)) { await new Promise(s => setTimeout(s, 1100)); gc[r.key] = await nomi(r.direccion); }
+  return gc[r.key];
+}
+function geo(q) {
+  if (!q) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(q + ', Arequipa, Perú'))
+    .then(r => r.json()).then(j => { if (j.length) map.flyTo([+j[0].lat, +j[0].lon], 17); else toast('No se encontró la zona: mueve el mapa y haz clic en la casa'); })
+    .catch(() => toast('No se pudo buscar la dirección: mueve el mapa manualmente'));
+}
+
+/* ----- Mapa y rutas ----- */
+let rg, tmp, mk = {}, rutaPts = [], rutaDone = new Set(), rutaInfo = '', resBusq = [], rutaId = 0;
+function hoyLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function initMap() {
+  if (map) return;
+  map = L.map('map').setView([CFG.base.lat, CFG.base.lng], 13);
+  const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' }).addTo(map);
+  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+  const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
+  L.control.layers({ 'Calles': esri, 'OpenStreetMap': osm, 'Satélite': sat }).addTo(map);
+  grp = L.layerGroup().addTo(map); rg = L.layerGroup().addTo(map); tmp = L.layerGroup().addTo(map);
+  map.on('click', e => {
+    if (placingNew) {   // la ubicación solo se cambia desde "Nuevo registro" o "Editar datos"
+      draft.lat = e.latlng.lat.toFixed(6); draft.lng = e.latlng.lng.toFixed(6); cancelar();
+      document.querySelector('[data-t=exp]').click(); abrirForm(); return;
+    }
+    if (placingOrigen) { placingOrigen = false; setOrigen(e.latlng.lat, e.latlng.lng); }
+  });
+  window.addEventListener('resize', () => map.invalidateSize());
+}
+const mapList = () => D.filter(r => (r.dias != null && r.dias <= CFG.dias) || r.sinFecha).sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
+const tog = (k, on) => on ? selSet.add(k) : selSet.delete(k);
+const hav = (a, b) => { const R = 6371, t = x => x * Math.PI / 180, dl = t(b.lat - a.lat), dg = t(b.lng - a.lng); const h = Math.sin(dl / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+
+function renderMapa() {
+  initMap(); setTimeout(() => map.invalidateSize(), 50); grp.clearLayers(); mk = {};
+  L.circleMarker([CFG.base.lat, CFG.base.lng], { radius: 10, color: '#1a5fd0', fillColor: '#1a5fd0', fillOpacity: .9 }).addTo(grp).bindPopup(esc(CFG.base.nombre));
+  if (origen) L.circleMarker([origen.lat, origen.lng], { radius: 10, color: '#7b1fa2', fillColor: '#7b1fa2', fillOpacity: .9 }).addTo(grp).bindPopup('Mi ubicación');
+  D.filter(r => r.lat).forEach(r => {
+    mk[r.key] = L.circleMarker([r.lat, r.lng], { radius: 7, color: '#222', weight: 1, fillOpacity: .9, fillColor: r.dias == null ? '#777' : r.dias < 0 ? '#b3261e' : r.dias <= CFG.dias ? '#b26a00' : '#2e7d4f' })
+      .addTo(grp).bindPopup('<b>' + esc(r.victima) + '</b><br>' + esc(r.direccion) + '<br><a href="#" onclick="regVisita(\'' + esc(r.key) + '\');return false">✔ Registrar visita</a> · <a href="#" onclick="openExp(\'' + esc(r.key) + '\');return false">Abrir expediente</a>');
+  });
+  $('lst').innerHTML = mapList().map(r => '<div class="it"><div><a href="#" onclick="verEnMapa(\'' + esc(r.key) + '\');return false"><b>' + esc(r.victima) + '</b></a> ' + badge(r) +
+    '<small>' + esc(r.direccion) + (r.lat ? '' : ' · sin coordenadas (se usará la dirección)') + '</small>' +
+    '<label class="inc"><input type="checkbox" ' + (selSet.has(r.key) ? 'checked ' : '') + 'onchange="tog(\'' + esc(r.key) + '\',this.checked)"> Incluir en la ruta</label></div>' +
+    '<button class="p" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button></div>').join('') || '<p>No hay visitas pendientes.</p>';
+}
+
+/* Mostrar a una persona en el mapa (NO cambia su ubicación; para eso está "Editar datos") */
+async function verEnMapa(key) {
+  const r = D.find(x => x.key === key); if (!r) return;
+  if ($('dlg').open) $('dlg').close();
+  document.querySelector('[data-t=mapa]').click();
+  tmp.clearLayers();
+  if (r.lat) { map.flyTo([r.lat, r.lng], 18); setTimeout(() => mk[key] && mk[key].openPopup(), 900); return; }
+  toast('Sin coordenadas: buscando por la dirección…');
+  const g = await nomi(r.direccion);
+  if (!g) return toast('No se encontró la dirección. Usa "Editar datos" para fijar su ubicación.');
+  L.circleMarker([g.lat, g.lng], { radius: 9, color: '#b26a00', fillOpacity: .4, dashArray: '3' }).addTo(tmp)
+    .bindPopup('<b>' + esc(r.victima) + '</b><br>Ubicación aproximada, según la dirección<br><a href="#" onclick="editar(\'' + esc(key) + '\');return false">Editar datos para fijar la ubicación</a>').openPopup();
+  map.flyTo([g.lat, g.lng], 16);
+}
+
+/* Buscador libre del mapa */
+async function buscarLugar() {
+  const q = $('ms').value.trim(); if (!q) return;
+  $('mres').innerHTML = '<small>Buscando…</small>';
+  try {
+    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
+    resBusq = j;
+    $('mres').innerHTML = j.length ? '<small>Elige un resultado:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
+  } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; }
+}
+function irResultado(i) {
+  const x = resBusq[i]; if (!x) return; const ll = [+x.lat, +x.lon]; tmp.clearLayers();
+  L.circleMarker(ll, { radius: 9, color: '#7b1fa2', fillOpacity: .5 }).addTo(tmp)
+    .bindPopup(esc(x.display_name) + '<br><a href="#" onclick="setOrigen(' + ll[0] + ',' + ll[1] + ');return false">Usar como punto de salida</a>').openPopup();
+  map.flyTo(ll, 17);
+}
+
+/* Limpiar todo el mapa para una consulta nueva */
+function limpiarMapa() {
+  rutaId++; cancelar(); placingOrigen = false;
+  if (rutaL) { map.removeLayer(rutaL); rutaL = null; }
+  rg.clearLayers(); tmp.clearLayers(); rutaPts = []; rutaDone = new Set(); rutaInfo = ''; resBusq = [];
+  selSet.clear(); origen = null; $('org').textContent = 'Salida: comisaría'; $('rta').innerHTML = ''; $('mres').innerHTML = ''; $('ms').value = '';
+  renderMapa(); map.setView([CFG.base.lat, CFG.base.lng], 13); toast('Mapa limpio');
+}
+
+/* Registrar visita (marca como visitada) */
+function regVisita(k) {
+  const r = D.find(x => x.key === k); if (!r) return; const hoy = hoyLocal();
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Registrar visita</h3><p><b>' + esc(r.victima) + '</b><br><small>' + esc(r.direccion) + '</small></p>' +
+    '<div class="bar"><label>Fecha<br><input type="date" id="rv_f" value="' + hoy + '" max="' + hoy + '"></label><label>Tipo<br><select id="rv_t"><option>Presencial</option><option>Telefónica</option></select></label></div>' +
+    '<label style="display:block;font-size:13px;color:var(--mute);margin-bottom:8px">Lo que refiere (opcional)<br><textarea id="rv_o" rows="2" style="width:100%"></textarea></label>' +
+    '<div class="bar"><button class="p" id="rv_ok" onclick="confirmarVisita(\'' + esc(k) + '\')">✔ Confirmar visita</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  if (!$('dlg').open) $('dlg').showModal();
+}
+function confirmarVisita(k) {
+  $('rv_ok').disabled = true;
+  call('saveVisit', k, $('rv_f').value, $('rv_t').value, $('rv_o').value)
+    .then(() => { selSet.delete(k); rutaDone.add(k); $('dlg').close(); toast('✔ Visita registrada'); pintaRuta(); return load(); })
+    .catch(() => { $('rv_ok').disabled = false; });
+}
+
+/* Ruta */
+async function pedirRuta(c) {   // prueba dos servidores de rutas; si ninguno responde en 9 s, devuelve null
+  const coords = c.map(p => p.lng + ',' + p.lat).join(';');
+  for (const u of ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/']) {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 9000);
+    try { const j = await (await fetch(u + coords + '?overview=full&geometries=geojson', { signal: ctl.signal })).json(); clearTimeout(t); if (j.code === 'Ok') return j.routes[0]; }
+    catch (e) { clearTimeout(t); }
+  }
+  return null;
+}
+function pintaRuta() {
+  if (!rutaPts.length) { $('rta').innerHTML = ''; return; }
+  $('rta').innerHTML = '<b>Ruta (' + rutaPts.length + ' paradas)</b><ol style="padding-left:20px;margin:6px 0">' + rutaPts.map(r => '<li style="margin-bottom:6px">' +
+    (rutaDone.has(r.key) ? '<s>' + esc(r.victima) + '</s> ✔ visitada' : esc(r.victima) + (r.aprox ? ' <small>(aprox.)</small>' : '') + ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>') + '</li>').join('') +
+    '</ol><small>' + esc(rutaInfo) + '</small>';
+}
+$('go').onclick = async () => {
+  const btn = $('go'), id = ++rutaId; btn.disabled = true; btn.textContent = 'Calculando…';
+  try {
+    let pts = [], sin = [];
+    for (const r of D.filter(x => selSet.has(x.key))) {
+      if (r.lat) { pts.push(r); continue; }
+      toast('Buscando la dirección de ' + r.victima + '…');
+      const g = await geoAprox(r);
+      if (g) pts.push(Object.assign({}, r, g, { aprox: true })); else sin.push(r.victima);
+    }
+    if (id !== rutaId) return;
+    if (sin.length) toast('No se encontró la dirección de: ' + sin.join(', '));
+    if (!pts.length) return toast('Marca al menos una visita con "Incluir en la ruta"');
+    if ($('ord').value === 'urg') pts.sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
+    else { const o = []; let cur = origen || CFG.base; while (pts.length) { pts.sort((a, b) => hav(cur, a) - hav(cur, b)); cur = pts.shift(); o.push(cur); } pts = o; }
+    rutaPts = pts; rutaDone = new Set(); rutaInfo = 'Calculando la ruta por calles…';
+    if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers();
+    pts.forEach((p, i) => L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="num">' + (i + 1) + '</div>', iconSize: [26, 26] }) }).addTo(rg).bindPopup((i + 1) + '. ' + esc(p.victima)));
+    const c = [origen || CFG.base].concat(pts), recta = () => L.polyline(c.map(p => [p.lat, p.lng]), { color: '#1a5fd0', dashArray: '6', weight: 3 }).addTo(map);
+    rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();   // línea provisional mientras llega la ruta por calles
+    const rt = await pedirRuta(c);
+    if (id !== rutaId) return;
+    map.removeLayer(rutaL);
+    if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: '#1a5fd0', weight: 5 } }).addTo(map); rutaInfo = (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min (sin tráfico)'; }
+    else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
+    map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
+  } finally { btn.disabled = false; btn.textContent = 'Calcular ruta'; }
+};
+$('clr').onclick = limpiarMapa;
+$('msb').onclick = buscarLugar;
+$('ms').onkeydown = e => { if (e.key === 'Enter') buscarLugar(); };
+
+/* ----- Nuevo registro / Editar datos ----- */
+let editKey = null;
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const MES_RE = /^([a-záéíóúñ]+)\s+(\d{4})$/i;
+const limpio = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+const opcionesDe = (campo, base) => { const s = new Set(base); D.forEach(r => { const v = limpio(r[campo]).toUpperCase(); if (v) s.add(v); }); return [...s].sort(); };
+const EST = 'style="width:100%;color:var(--ink)"';
+const I = (id, type, val, x) => '<input id="n_' + id + '" type="' + type + '" value="' + esc(val == null ? '' : val) + '" ' + (x || '') + ' ' + EST + '>';
+const S = (id, opts, cur) => {   // lista desplegable (sin autocompletar); si el valor actual no está en la lista, se agrega
+  cur = limpio(cur); const o = opts.slice(); if (cur && !o.includes(cur)) o.unshift(cur);
+  return '<select id="n_' + id + '" ' + EST + '><option value="">— elegir —</option>' + o.map(x => '<option' + (x === cur ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>';
+};
+const LB = (t, h) => '<label style="font-size:13px;color:var(--mute)">' + t + h + '</label>';
+
+function leerForm() {
+  ['victima', 'edad', 'sexo', 'celular', 'dni', 'direccion', 'expediente', 'fReg', 'fRes', 'violencia', 'agresor', 'riesgo', 'vigencia'].forEach(k => { draft[k] = limpio($('n_' + k).value); });
+  const m = $('n_mm').value, a = $('n_ma').value;
+  draft.mes = (m && a) ? m + ' ' + a : (draft.mesOrig && !MES_RE.test(limpio(draft.mesOrig)) ? draft.mesOrig : '');   // si el mes original no tenía formato "mes año", se conserva
+  draft.bp = $('n_bp').checked; draft.lat = $('n_lat').value.trim(); draft.lng = $('n_lng').value.trim();
+  return draft;
+}
+function nuevo() { editKey = null; draft = {}; abrirForm(); }
+function editar(key) {
+  const r = D.find(x => x.key === key); if (!r) return;
+  editKey = key;
+  draft = { victima: r.victima, edad: r.edad, sexo: r.sexo, celular: r.celular, dni: r.dni, direccion: r.direccion, expediente: r.expediente, fReg: r.fReg, fRes: r.fRes,
+    violencia: r.violencia, agresor: r.agresor, riesgo: r.riesgo, mes: r.mes, mesOrig: r.mes, vigencia: r.vigencia, bp: !!r.bp, lat: r.lat || '', lng: r.lng || '' };
+  abrirForm();
+}
+function abrirForm() {
+  const d = draft, hoy = hoyLocal(), y = new Date().getFullYear(), m = MES_RE.exec(limpio(d.mes));
+  const anios = [y - 1, y, y + 1, y + 2, y + 3].map(String);
+  $('dlg').innerHTML = '<h3 style="margin-top:0">' + (editKey ? 'Editar datos' : 'Nuevo registro') + '</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px">' +
+    LB('Nombres y apellidos de la víctima *', I('victima', 'text', d.victima)) + LB('Edad', I('edad', 'text', d.edad, 'inputmode="numeric" maxlength="10"')) +
+    LB('Sexo', S('sexo', ['F', 'M', 'Otro'], d.sexo)) + LB('Celular', I('celular', 'tel', d.celular)) + LB('DNI', I('dni', 'text', d.dni, 'maxlength="12"')) +
+    LB('Dirección', I('direccion', 'text', d.direccion)) + LB('Expediente *', I('expediente', 'text', d.expediente)) +
+    LB('Fecha de registro', I('fReg', 'date', d.fReg || (editKey ? '' : hoy))) + LB('Fecha de resolución', I('fRes', 'date', d.fRes)) +
+    LB('Tipo de violencia', S('violencia', opcionesDe('violencia', ['FISICO Y PSIC', 'FISICO', 'PSICOLOGICO', 'SEXUAL', 'ECONOMICO']), limpio(d.violencia).toUpperCase())) +
+    LB('Agresor (solo nombre)', I('agresor', 'text', d.agresor)) +
+    LB('Tipo de riesgo', S('riesgo', opcionesDe('riesgo', ['LEVE', 'MODERADO', 'SEVERO', 'SEVERO EXTREMO']), limpio(d.riesgo).toUpperCase())) +
+    LB('Mes de informe', '<div style="display:flex;gap:6px">' + S('mm', MESES, m ? m[1].toLowerCase() : '') + S('ma', anios, m ? m[2] : '') + '</div>') +
+    LB('Tiempo de vigencia', I('vigencia', 'text', d.vigencia)) + '</div>' +
+    '<label style="display:block;margin:10px 0"><input type="checkbox" id="n_bp" ' + (d.bp ? 'checked' : '') + '> Botón de pánico (B.P)</label>' +
+    '<b>Coordenadas</b><div class="bar" style="margin-top:6px"><input id="n_lat" placeholder="Latitud" value="' + esc(d.lat || '') + '"><input id="n_lng" placeholder="Longitud" value="' + esc(d.lng || '') + '">' +
+    '<button class="s" onclick="buscarNuevo()">Buscar por dirección</button><button class="s" onclick="ubicarNuevo()">Marcar en el mapa</button></div>' +
+    '<small style="color:var(--mute)">Si no hay coordenadas, se usará la dirección escrita para ubicarla de forma aproximada.</small>' +
+    '<div class="bar" style="margin-top:12px"><button class="p" id="gn" onclick="guardarForm()">' + (editKey ? 'Guardar cambios' : 'Guardar en el Excel') + '</button><button class="s" onclick="draft={};editKey=null;$(\'dlg\').close()">Cancelar</button></div>';
+  if (!$('dlg').open) $('dlg').showModal();
+}
+async function buscarNuevo() {
+  leerForm(); if (!draft.direccion) return toast('Escribe primero la dirección');
+  toast('Buscando…'); const g = await nomi(draft.direccion);
+  if (!g) return toast('No se encontró la dirección: usa "Marcar en el mapa"');
+  $('n_lat').value = g.lat.toFixed(6); $('n_lng').value = g.lng.toFixed(6); toast('Ubicación aproximada: puedes afinarla en el mapa');
+}
+function ubicarNuevo() {
+  leerForm(); $('dlg').close();
+  document.querySelector('[data-t=mapa]').click();
+  placing = null; placingNew = true; $('ban').classList.remove('hide');
+  $('ban').innerHTML = '<span>Haz clic sobre la casa de <b>' + esc(draft.victima || 'la persona') + '</b></span><input id="gq" style="flex:1;min-width:150px" placeholder="Buscar calle o zona"><button class="s" onclick="geo($(\'gq\').value)">Buscar</button><button class="s" onclick="cancelar();abrirForm()">Cancelar</button>';
+  $('gq').value = limpiaDir(draft.direccion || ''); map.getContainer().classList.add('placing');
+  if (draft.lat) map.flyTo([+draft.lat, +draft.lng], 18); else geo($('gq').value);
+}
+function guardarForm() {
+  leerForm();
+  if (!draft.victima) return toast('Falta el nombre de la víctima');
+  if (!draft.expediente) return toast('Falta el número de expediente');
+  $('gn').disabled = true;
+  const edit = !!editKey, p = edit ? call('updateRow', editKey, draft) : call('addRow', draft);
+  p.then(r => { toast(edit ? 'Cambios guardados' : 'Registro agregado: Nro ' + r.nro); draft = {}; editKey = null; $('dlg').close(); load(); })
+   .catch(() => { $('gn').disabled = false; });
+}
+window.addEventListener('unhandledrejection', e => e.preventDefault());   // los errores ya se muestran con toast
+function setOrigen(lat, lng) {
+  origen = { lat, lng }; $('org').textContent = 'Salida: mi ubicación';
+  renderMapa(); map.flyTo([lat, lng], 15);
+}
+function pedirOrigen() { placing = null; placingOrigen = true; toast('No se pudo usar el GPS: haz clic en el mapa donde estás'); }
+$('gps').onclick = () => {
+  if (!navigator.geolocation) return pedirOrigen();
+  toast('Obteniendo tu ubicación…');
+  navigator.geolocation.getCurrentPosition(p => setOrigen(p.coords.latitude, p.coords.longitude), pedirOrigen, { enableHighAccuracy: true, timeout: 10000 });
+};
+if (TOKEN) abrir().catch(() => { if (!$('lbox').innerHTML) mostrarLogin('No se pudo continuar. Ingresa de nuevo.'); }); else mostrarLogin();
+</script></body></html>

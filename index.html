@@ -10,7 +10,8 @@ nav{width:200px;background:var(--brand);color:#fff;padding:18px 12px;display:fle
 nav h1{font-size:15px;margin:0 6px 14px;line-height:1.25}nav button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;color:#d7e6dd}
 nav button.on{background:#fff;color:var(--brand);font-weight:700}nav button:focus-visible{outline:2px solid #fff}
 nav small{margin-top:auto;font-size:12px;color:#b9cfc3;word-break:break-all}
-nav small#cuaN{margin-top:2px;color:#fff;font-weight:600;word-break:normal}
+nav small#cuaN{margin-top:2px;color:#b9cfc3;word-break:normal}
+nav select#cuaSel{margin:0 0 8px;width:100%;font-weight:600;color:var(--ink);cursor:pointer}
 main{flex:1;padding:22px;min-width:0}h2{margin:0 0 14px;font-size:22px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}.kpi b{font-size:30px;display:block}.kpi span{color:var(--mute);font-size:13px}
@@ -49,7 +50,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 .brow{display:grid;grid-template-columns:50px 1fr 190px;gap:8px;align-items:center;font-size:13px;margin:3px 0}
 .bar2{background:#e8eee9;border-radius:6px;height:12px}.bar2 i{display:block;height:100%;background:var(--brand);border-radius:6px}
 #adm h4{margin:18px 0 6px}
-@media(max-width:800px){body{flex-direction:column}nav{width:auto;flex-direction:row;flex-wrap:wrap;padding:8px}nav h1,nav small{display:none}
+@media(max-width:800px){body{flex-direction:column}nav{width:auto;flex-direction:row;flex-wrap:wrap;padding:8px}nav h1,nav small{display:none}nav select#cuaSel{width:auto;margin:0}
 .map{grid-template-columns:1fr;height:auto}#map{height:55vh}#side{max-height:40vh}main{padding:12px}}
 .mtool{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
 .mrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -73,7 +74,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 <nav><h1>Gestión de visitas<br>Comisaría de la Familia</h1>
 <button data-t="inicio" class="on">Inicio</button><button data-t="exp">Hoja de expedientes</button><button data-t="mapa">Mapa y visitas</button>
 <button data-t="admin" id="navAdmin" class="hide">Administración</button>
-<small id="user"></small><small id="cuaN"></small><button id="bcua">Cambiar de cuadro</button><button id="bpass">Cambiar contraseña</button><button id="bout">Cerrar sesión</button></nav>
+<small id="user"></small><small id="cuaN"></small><select id="cuaSel" class="hide" title="Cambiar de cuadro" aria-label="Cambiar de cuadro"></select><button id="bpass">Cambiar contraseña</button><button id="bout">Cerrar sesión</button></nav>
 <main>
 <section id="t-inicio"><h2>Inicio</h2><div class="kpis" id="kpis"></div>
 <div class="box"><b>Alertas de visita: las más urgentes</b><table id="urg"></table></div></section>
@@ -121,7 +122,8 @@ let COLS = {}, hojaSel = '', origen = null, placingOrigen = false, placingNew = 
 let CUR = null, soloAdm = false, listo = false;   // CUR = cuadro abierto; soloAdm = el administrador entró sin cuadro; listo = la app ya está cargada (activa la actualización automática)
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SIN_TOKEN = new Set(['login', 'verificarCodigo']);
+const SIN_TOKEN = new Set(['login']);
+// URL de la implementación (Apps Script → Implementar → Aplicación web). Si creas un proyecto nuevo, cámbiala aquí.
 const API_URL = 'https://script.google.com/macros/s/AKfycbxCBEpYkdWBXFUKu71NajMF8ujlgt8AUc60udZu4CYa3bXKjGTAOVuxiNztH_s6O88U/exec';
 async function api(fn, args) {
   const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });
@@ -131,9 +133,9 @@ async function api(fn, args) {
 }
 
 let busyN = 0;
-const MSG = { login: 'Verificando tus datos…', verificarCodigo: 'Verificando el código…', inicio: 'Cargando…', elegirCuadro: 'Abriendo el cuadro…', getData: 'Cargando los datos del cuadro…',
+const MSG = { login: 'Verificando tus datos…', inicio: 'Cargando…', elegirCuadro: 'Abriendo el cuadro…', getData: 'Cargando los datos del cuadro (si el Excel cambió, se actualiza la copia)…',
   cambiarPassword: 'Guardando la contraseña…', saveVisit: 'Guardando la visita…', deleteVisit: 'Anulando la visita…', setEstado: 'Guardando el estado…', addRow: 'Guardando el registro en el Excel…',
-  updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminAgregarCuadro: 'Revisando el archivo…',
+  updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminSincronizar: 'Sincronizando los Excel con la carpeta Bridge…',
   adminEditarCuadro: 'Guardando…', adminGuardarUsuario: 'Guardando el usuario…', adminResetPassword: 'Restableciendo la clave…', adminResumen: 'Cargando el monitoreo…', adminAuditoria: 'Buscando en el historial…',
   adminUsuarios: 'Cargando usuarios…', adminCuadros: 'Cargando cuadros…', logout: 'Cerrando sesión…' };
 function busyOn(m) { busyN++; $('busyT').textContent = m || 'Procesando…'; if (busyN === 1 && !$('busy').open) $('busy').showModal(); }
@@ -164,9 +166,11 @@ function load(silent) {
     ME = r.user; CFG = r.cfg;
     if (!r.cuadro && !soloAdm) { listo = false; return abrir(); }   // el cuadro ya no está disponible: volver a elegir
     D = r.rows; COLS = r.columnas || {}; ver = r.version; CUR = r.cuadro;
+    D.forEach(x => { x.etq = x.victima || ('Sin nombre · Nro ' + x.nro + (x.expediente ? ' · ' + x.expediente.split(/\s+/)[0] : '')); });
+    pintaSelCuadro(r.cuadros || []);
     $('navAdmin').classList.toggle('hide', ME.rol !== 'Administrador');
     $('user').textContent = (ME.nombre || ME.usuario) + ' · ' + ME.rol;
-    $('cuaN').textContent = CUR ? 'Cuadro: ' + CUR.nombre : 'Sin cuadro elegido';
+    $('cuaN').textContent = CUR ? 'Cuadro abierto:' : 'Sin cuadro elegido';
     $('login').classList.add('hide'); listo = true; render();
     if (r.warnings && r.warnings.length) toast(r.warnings[0]);
   });
@@ -177,18 +181,17 @@ let TOKEN = '', PWD = '', LU = '', ME = null, USR = [], CUA = [], admTab = 'mon'
 try { TOKEN = sessionStorage.getItem('tk') || ''; } catch (e) {}
 const guardaTk = t => { TOKEN = t; try { t ? sessionStorage.setItem('tk', t) : sessionStorage.removeItem('tk'); } catch (e) {} };
 const limpiaMsg = m => String(m || '').replace(/^(Error|Exception):\s*/i, '');
-function mostrarLogin(msg) { guardaTk(''); PWD = ''; ME = null; D = []; CUR = null; soloAdm = false; listo = false; $('cuaN').textContent = ''; $('navAdmin').classList.add('hide'); document.querySelector('[data-t=inicio]').click(); $('login').classList.remove('hide'); pintaLogin('cred', msg); }
+function mostrarLogin(msg) { guardaTk(''); PWD = ''; ME = null; D = []; CUR = null; soloAdm = false; listo = false; $('cuaN').textContent = ''; $('cuaSel').classList.add('hide'); $('navAdmin').classList.add('hide'); document.querySelector('[data-t=inicio]').click(); $('login').classList.remove('hide'); pintaLogin('cred', msg); }
 function pintaLogin(modo, msg, extra) {
   const m = msg ? '<p class="lerr">' + esc(msg) + '</p>' : '';
   const cab = '<h2 style="margin:0">Sistema de Gestión de Visitas</h2><small style="color:var(--mute)">Comisaría PNP de la Familia</small>';
   $('lbox').innerHTML = cab + m + ({
     cred: '<label>Usuario<input id="lu" autocomplete="username" autocapitalize="none"></label><label>Contraseña<input id="lp" type="password" autocomplete="current-password"></label><button class="p" id="lgo">Ingresar</button>',
-    codigo: '<label>Código de 6 dígitos<input id="lc" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label><button class="p" id="lgo">Verificar</button><button class="s" id="lback">Volver</button>',
     cambio: '<label>Nueva contraseña (mín. 8, con letras y números)<input id="n1" type="password" autocomplete="new-password"></label><label>Repite la contraseña<input id="n2" type="password" autocomplete="new-password"></label><button class="p" id="lgo">Guardar y entrar</button><button class="s" id="lback">Cerrar sesión</button>'
   })[modo];
-  const go = { cred: doLogin, codigo: doCodigo, cambio: doCambio }[modo]; $('lgo').onclick = go;
+  const go = { cred: doLogin, cambio: doCambio }[modo]; $('lgo').onclick = go;
   document.querySelectorAll('#lbox input').forEach(i => i.onkeydown = e => { if (e.key === 'Enter') go(); });
-  if ($('lback')) $('lback').onclick = modo === 'cambio' ? doLogout : () => mostrarLogin();
+  if ($('lback')) $('lback').onclick = doLogout;
   const f = $('lbox').querySelector('input'); if (f) f.focus();
 }
 async function conBoton(fn) { const b = $('lgo'), t = b.textContent; b.disabled = true; b.textContent = 'Un momento…'; try { await fn(); } finally { if ($('lgo')) { $('lgo').disabled = false; $('lgo').textContent = t; } } }
@@ -196,13 +199,9 @@ function doLogin() {
   LU = $('lu').value.trim(); PWD = $('lp').value;
   if (!LU || !PWD) return pintaLogin('cred', 'Escribe tu usuario y contraseña.');
   return conBoton(async () => {
-    try { const r = await call('login', LU, PWD); if (r.paso === 'codigo') pintaLogin('codigo', 'Enviamos un código a ' + r.correo + '. Revisa tu bandeja de entrada (y spam).'); else entrada(r); }
+    try { entrada(await call('login', LU, PWD)); }
     catch (e) { pintaLogin('cred', limpiaMsg(e.message)); }
   });
-}
-function doCodigo() {
-  const c = $('lc').value.trim(); if (!c) return;
-  return conBoton(async () => { try { entrada(await call('verificarCodigo', LU, c)); } catch (e) { pintaLogin('codigo', limpiaMsg(e.message)); } });
 }
 function entrada(r) { guardaTk(r.token); ME = r.user; if (r.debe_cambiar) pintaLogin('cambio', 'Por seguridad, cambia tu contraseña temporal.'); else abrir(); }
 function doCambio() {
@@ -225,8 +224,8 @@ function pintaCuadros(r, volver) {
   listo = false; ME = r.user;
   const adm = r.user.rol === 'Administrador';
   const lista = r.cuadros.length
-    ? '<div style="display:flex;flex-direction:column;gap:8px">' + r.cuadros.map(c => '<button class="s cua" data-id="' + esc(c.id) + '" style="text-align:left;padding:12px"><b>' + esc(c.nombre) + '</b><br><small style="color:var(--mute)">' + (c.tipo === 'xlsx' ? 'Excel (.xlsx)' : 'Google Sheet') + (r.cuadro && r.cuadro.id === c.id ? ' · abierto ahora' : '') + '</small></button>').join('') + '</div>'
-    : '<p style="margin:0;color:var(--mute)">' + (adm ? 'Todavía no hay cuadros. Agrega el primero en Administración → Cuadros.' : 'Todavía no hay cuadros disponibles. Pide al administrador que agregue uno.') + '</p>';
+    ? '<div style="display:flex;flex-direction:column;gap:8px">' + r.cuadros.map(c => '<button class="s cua" data-id="' + esc(c.id) + '" style="text-align:left;padding:12px"><b>' + esc(c.nombre) + '</b><br><small style="color:var(--mute)">' + esc(c.archivo || 'Excel (.xlsx)') + (r.cuadro && r.cuadro.id === c.id ? ' · abierto ahora' : '') + '</small></button>').join('') + '</div>'
+    : '<p style="margin:0;color:var(--mute)">' + (adm ? 'Todavía no hay cuadros. Pon los .xlsx en la carpeta Data y pulsa «Sincronizar ahora» en Administración → Cuadros.' : 'Todavía no hay cuadros disponibles. Avisa al administrador.') + '</p>';
   $('lbox').innerHTML = '<h2 style="margin:0">¿Qué cuadro quieres ver?</h2><small style="color:var(--mute)">Sesión: ' + esc(r.user.nombre || r.user.usuario) + '</small>' + lista +
     (adm && !r.cuadro ? '<button class="s" id="cadm">Solo administración</button>' : '') + (volver ? '<button class="s" id="cvolver">Volver</button>' : '') + '<button class="s" id="clo">Cerrar sesión</button>';
   $('lbox').querySelectorAll('.cua').forEach(b => b.onclick = () => elegir(b.dataset.id));
@@ -245,7 +244,17 @@ async function elegir(id) {
   try { await call('elegirCuadro', id); soloAdm = false; resetVista(); document.querySelector('[data-t=inicio]').click(); await load(); }
   catch (e) { document.querySelectorAll('#lbox .cua').forEach(b => b.disabled = false); }
 }
-$('bcua').onclick = async () => { try { pintaCuadros(await call('inicio'), true); } catch (e) {} };
+function pintaSelCuadro(cs) {   // lista de cuadros en la barra lateral: se cambia sin salir de la aplicación
+  const s = $('cuaSel');
+  s.innerHTML = (CUR ? '' : '<option value="">— elegir cuadro —</option>') + cs.map(c => '<option value="' + esc(c.id) + '"' + (CUR && CUR.id === c.id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
+  s.classList.toggle('hide', !cs.length);
+}
+$('cuaSel').onchange = async e => {
+  const id = e.target.value; if (!id || (CUR && CUR.id === id)) return;
+  if ($('dlg').open) $('dlg').close();
+  try { await call('elegirCuadro', id); soloAdm = false; resetVista(); await load(); toast('Cuadro abierto: ' + (CUR ? CUR.nombre : '')); }
+  catch (err) { if (CUR) e.target.value = CUR.id; }
+};
 async function doLogout() { try { await call('logout'); } catch (e) {} mostrarLogin(); }
 $('bout').onclick = doLogout;
 $('bpass').onclick = () => {
@@ -265,15 +274,15 @@ function renderAdmin() {
   document.querySelectorAll('#admtabs button').forEach(b => { b.className = b.dataset.a === admTab ? 'p' : 's'; });
   ({ mon: admMon, cua: admCua, usr: admUsr, aud: admAud })[admTab]();
 }
-const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', AGREGAR_CUADRO: 'Cuadro agregado', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido' };
-const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada', CODIGO_ENVIADO: 'Código enviado', CODIGO_INCORRECTO: 'Código incorrecto' };
+const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido', SINCRONIZAR: 'Sincronización' };
+const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada' };
 async function admMon() {
   $('adm').innerHTML = '<small>Cargando…</small>';
   const r = await call('adminResumen').catch(() => null); if (!r) return;
   const mx = Math.max(1, ...r.porDia.map(d => d.acciones));
   const kp = [['Usuarios activos', r.usuarios.activos + ' / ' + r.usuarios.total], ['Conectados ahora', r.conectados.length], ['Accesos fallidos (24 h)', r.fallidos24], ['Expedientes', r.exp.total],
     ['Visitas vencidas', r.exp.vencidas], ['Por vencer', r.exp.porVencer], ['Sin fecha de visita', r.exp.sinFecha], ['Sin coordenadas', r.exp.sinCoord]];
-  $('adm').innerHTML = '<p style="margin-top:0">Cuadro abierto: <b>' + esc(r.cuadro || 'ninguno') + '</b> (los datos de expedientes son de este cuadro) · <a href="' + esc(r.datosUrl) + '" target="_blank" rel="noopener">Abrir el Excel de datos del aplicativo</a></p>' +
+  $('adm').innerHTML = '<p style="margin-top:0">Cuadro abierto: <b>' + esc(r.cuadro || 'ninguno') + '</b> (los datos de expedientes son de este cuadro) · <a href="' + esc(r.datosUrl) + '" target="_blank" rel="noopener">Abrir UIXDATA (datos del aplicativo)</a></p>' +
     '<div class="kpis">' + kp.map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('') + '</div>' +
     '<h4>Actividad de los últimos 7 días</h4>' + r.porDia.map(d => '<div class="brow"><span>' + d.dia.slice(5) + '</span><div class="bar2"><i style="width:' + Math.round(d.acciones / mx * 100) + '%"></i></div><span>' + d.acciones + ' acciones · ' + d.visitas + ' visitas</span></div>').join('') +
     '<h4>Actividad por usuario (30 días)</h4><table><tr><th>Usuario</th><th>Acciones</th><th>Visitas</th><th>Ediciones</th><th>Registros nuevos</th></tr>' +
@@ -282,41 +291,43 @@ async function admMon() {
     '<h4>Estado de los expedientes</h4><p>' + (Object.entries(r.exp.estados).map(([k, v]) => esc(k) + ': <b>' + v + '</b>').join(' · ') || '—') + '</p>' +
     '<h4>Accesos recientes</h4><table><tr><th>Fecha</th><th>Usuario</th><th>Evento</th></tr>' + r.accesos.map(a => '<tr><td>' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(EVT[a.evento] || a.evento) + '</td></tr>').join('') + '</table>';
 }
-/* Cuadros (Excel que ve el personal) */
+/* Cuadros = los .xlsx de la carpeta Data (se detectan solos) y su copia nativa en Data/Bridge */
 async function admCua() {
   $('adm').innerHTML = '<small>Cargando…</small>';
   const cs = await call('adminCuadros').catch(() => null); if (!cs) return; CUA = cs;
-  $('adm').innerHTML = '<div class="bar"><button class="p" onclick="formCuadro()">+ Agregar cuadro</button></div>' +
-    '<span class="help">Cada cuadro es un Excel (.xlsx) o un Google Sheet de la comisaría. Al ingresar, cada usuario elige cuál ver. El archivo debe estar compartido como <b>Editor</b> con la cuenta que publica la aplicación. Un cuadro desactivado deja de aparecer, pero sus visitas y datos se conservan.</span>' +
-    (cs.length ? '<table><tr><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Agregado</th><th></th></tr>' + cs.map(c => '<tr><td><b>' + esc(c.nombre) + '</b></td><td>' + (c.tipo === 'xlsx' ? 'Excel (.xlsx)' : 'Google Sheet') + '</td><td>' + (c.activo ? '<span class="b g">disponible</span>' : '<span class="b n">desactivado</span>') +
-      '</td><td>' + esc(c.agregado_en) + '<br><small style="color:var(--mute)">' + esc(c.agregado_por) + '</small></td><td style="white-space:nowrap"><button class="s" onclick="formCuadro(\'' + esc(c.id) + '\')">Editar</button> <a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="' + esc(c.url) + '" target="_blank" rel="noopener">Abrir archivo</a></td></tr>').join('') + '</table>' : '<p>Aún no hay cuadros agregados.</p>');
+  const a = (href, t) => href ? ' <a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="' + esc(href) + '" target="_blank" rel="noopener">' + t + '</a>' : '';
+  $('adm').innerHTML = '<div class="bar"><button class="p" onclick="sincronizar()">⟳ Sincronizar ahora</button></div>' +
+    '<span class="help">Cada <b>.xlsx</b> de la carpeta <b>Data</b> es un cuadro; los nuevos aparecen solos. La aplicación lee de su copia en <b>Data/Bridge</b> (mismo nombre, formato de Google), que se actualiza sola cuando el Excel cambia: cada pocos minutos y al abrir el cuadro. Lo que se guarda desde la aplicación se escribe en el .xlsx original sin cambiar su formato. Un cuadro desactivado deja de aparecer, pero sus visitas y datos se conservan.</span>' +
+    (cs.length ? '<table><tr><th>Nombre</th><th>Archivo</th><th>Expedientes</th><th>Última sincronización</th><th>Estado</th><th></th></tr>' + cs.map(c => '<tr><td><b>' + esc(c.nombre) + '</b><br>' + (c.activo ? '<span class="b g">disponible</span>' : '<span class="b n">desactivado</span>') + '</td><td>' + esc(c.archivo) +
+      '</td><td>' + c.expedientes + '</td><td>' + esc(c.sincronizado || '—') + '</td><td style="max-width:280px"><small>' + esc(c.estado) + '</small></td><td style="white-space:nowrap"><button class="s" onclick="formCuadro(\'' + esc(c.id) + '\')">Editar</button> <button class="s" onclick="sincronizar(\'' + esc(c.id) + '\')">Resincronizar</button>' +
+      a(c.url, 'Excel') + a(c.bridgeUrl, 'Bridge') + '</td></tr>').join('') + '</table>'
+      : '<p>Aún no hay cuadros. Pon los .xlsx en la carpeta Data y pulsa «Sincronizar ahora».</p>');
+}
+async function sincronizar(id) {
+  try {
+    const r = await call('adminSincronizar', { id: id || '' });
+    toast(id ? 'Cuadro resincronizado' : 'Listo: ' + r.nuevos + ' nuevos, ' + r.actualizados + ' actualizados' + (r.errores.length ? ' · errores: ' + r.errores.join(' | ') : ''));
+  } catch (e) {}
+  admCua();
 }
 function formCuadro(id) {
-  const c = id ? CUA.find(x => x.id === id) : null, ed = !!c, st = 'style="width:100%"';
-  $('dlg').innerHTML = '<h3 style="margin-top:0">' + (ed ? 'Editar cuadro' : 'Agregar cuadro') + '</h3><div style="display:grid;gap:8px">' +
-    '<label>Nombre (lo verán los usuarios)<input id="cn" ' + st + ' value="' + esc(c ? c.nombre : '') + '" placeholder="Ej.: Cuadro 2026"></label>' +
-    (ed ? '<label><input type="checkbox" id="ca" ' + (c.activo ? 'checked' : '') + '> Disponible para los usuarios</label>'
-        : '<label>Enlace del archivo (Drive o Google Sheets)<input id="cl" ' + st + ' placeholder="https://drive.google.com/file/d/…  o  https://docs.google.com/spreadsheets/d/…"></label><small style="color:var(--mute)">Se revisará el archivo antes de agregarlo (puede tardar unos segundos).</small>') +
-    '</div><div class="bar" style="margin-top:12px"><button class="p" id="cok">' + (ed ? 'Guardar' : 'Revisar y agregar') + '</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  const c = CUA.find(x => x.id === id); if (!c) return;
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Editar cuadro</h3><div style="display:grid;gap:8px">' +
+    '<label>Nombre (lo verán los usuarios)<input id="cn" style="width:100%" value="' + esc(c.nombre) + '"></label>' +
+    '<small style="color:var(--mute)">Archivo: ' + esc(c.archivo) + '</small>' +
+    '<label><input type="checkbox" id="ca" ' + (c.activo ? 'checked' : '') + '> Disponible para los usuarios</label></div>' +
+    '<div class="bar" style="margin-top:12px"><button class="p" id="cok">Guardar</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
   $('cok').onclick = () => {
-    const t = $('cok').textContent; $('cok').disabled = true; $('cok').textContent = ed ? 'Guardando…' : 'Revisando el archivo…';
-    const p = ed ? call('adminEditarCuadro', { id, nombre: $('cn').value, activo: $('ca').checked }) : call('adminAgregarCuadro', { nombre: $('cn').value, link: $('cl').value });
-    p.then(r => { if (ed) { $('dlg').close(); toast('Cuadro actualizado'); } else resultadoCuadro(r); admCua(); })
-     .catch(() => { $('cok').disabled = false; $('cok').textContent = t; });
+    $('cok').disabled = true;
+    call('adminEditarCuadro', { id, nombre: $('cn').value, activo: $('ca').checked }).then(() => { $('dlg').close(); toast('Cuadro actualizado'); admCua(); }).catch(() => { $('cok').disabled = false; });
   };
   if (!$('dlg').open) $('dlg').showModal();
-}
-function resultadoCuadro(r) {
-  $('dlg').innerHTML = '<h3 style="margin-top:0">Cuadro agregado</h3><p>Se leyó <b>' + esc(r.nombre) + '</b> (' + (r.tipo === 'xlsx' ? 'Excel .xlsx' : 'Google Sheet') + '): <b>' + r.expedientes + '</b> expedientes en <b>' + r.hojas + '</b> hojas.</p>' +
-    (r.soloLectura ? '<p class="lerr">Atención: la cuenta que publica la aplicación parece tener solo lectura sobre este archivo. Compártelo como Editor o no se podrá guardar nada.</p>' : '') +
-    (r.avisos.length ? '<p><b>Avisos:</b></p><ul>' + r.avisos.map(a => '<li>' + esc(a) + '</li>').join('') + '</ul>' : '') +
-    '<p style="color:var(--mute)">Para verlo, usa «Cambiar de cuadro» (abajo a la izquierda).</p><div class="bar"><button class="p" onclick="$(\'dlg\').close()">Listo</button></div>';
 }
 async function admUsr() {
   $('adm').innerHTML = '<small>Cargando…</small>';
   const us = await call('adminUsuarios').catch(() => null); if (!us) return; USR = us;
   $('adm').innerHTML = '<div class="bar"><button class="p" onclick="formUsuario()">+ Nuevo usuario</button></div><table><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr>' +
-    us.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.rol) + '</td><td>' + (u.activo ? '<span class="b g">activo</span>' : '<span class="b n">inactivo</span>') + (u.debe_cambiar ? ' <span class="b a">clave temporal</span>' : '') + '</td><td>' + esc(u.ultimo || '—') +
+    us.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.rol) + '</td><td>' + (u.activo ? '<span class="b g">activo</span>' : '<span class="b n">inactivo</span>') + (u.debe_cambiar ? ' <span class="b a">clave temporal</span>' : '') + (u.bloqueado ? ' <span class="b r">bloqueado</span>' : '') + '</td><td>' + esc(u.ultimo || '—') +
       '</td><td style="white-space:nowrap"><button class="s" onclick="formUsuario(\'' + esc(u.usuario) + '\')">Editar</button> <button class="s" onclick="resetClave(\'' + esc(u.usuario) + '\')">Restablecer clave</button></td></tr>').join('') + '</table>';
 }
 function formUsuario(usuario) {
@@ -324,7 +335,7 @@ function formUsuario(usuario) {
   $('dlg').innerHTML = '<h3 style="margin-top:0">' + (ed ? 'Editar usuario' : 'Nuevo usuario') + '</h3><div style="display:grid;gap:8px">' +
     '<label>Usuario (para ingresar)<input id="fu" ' + st + ' value="' + esc(u ? u.usuario : '') + '" ' + (ed ? 'readonly' : '') + ' autocapitalize="none"></label>' +
     '<label>Nombre completo<input id="fn" ' + st + ' value="' + esc(u ? u.nombre : '') + '"></label>' +
-    '<label>Correo (Gmail o @ucsp.edu.pe; recibe el código de acceso)<input id="fc" type="email" ' + st + ' value="' + esc(u ? u.correo : '') + '" placeholder="nombre@gmail.com o nombre@ucsp.edu.pe"></label>' +
+    '<label>Correo (opcional, solo de contacto)<input id="fc" type="email" ' + st + ' value="' + esc(u ? u.correo : '') + '" placeholder="nombre@gmail.com"></label>' +
     '<label>Rol<select id="fr" ' + st + '><option' + (u && u.rol === 'Personal' ? ' selected' : '') + '>Personal</option><option' + (u && u.rol === 'Administrador' ? ' selected' : '') + '>Administrador</option></select></label>' +
     (ed ? '<label><input type="checkbox" id="fa" ' + (u.activo ? 'checked' : '') + '> Cuenta activa</label>' : '<small style="color:var(--mute)">Se generará una contraseña temporal que el usuario deberá cambiar al entrar.</small>') +
     '</div><div class="bar" style="margin-top:12px"><button class="p" id="fok">Guardar</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
@@ -342,7 +353,7 @@ function mostrarTemporal(u, p) {
     '<div class="bar" style="margin-top:12px"><button class="p" onclick="$(\'dlg\').close()">Listo</button></div>';
   if (!$('dlg').open) $('dlg').showModal();
 }
-function resetClave(u) { if (confirm('¿Restablecer la contraseña de "' + u + '"? Se cerrarán sus sesiones abiertas.')) call('adminResetPassword', u).then(r => { mostrarTemporal(u, r.temporal); admUsr(); }); }
+function resetClave(u) { if (confirm('¿Restablecer la contraseña de "' + u + '"? Se cerrarán sus sesiones abiertas y se quitará el bloqueo, si lo tiene.')) call('adminResetPassword', u).then(r => { mostrarTemporal(u, r.temporal); admUsr(); }); }
 async function admAud() {
   if (!USR.length) USR = await call('adminUsuarios').catch(() => []);
   $('adm').innerHTML = '<div class="bar"><select id="au"><option value="">Todos los usuarios</option>' + USR.map(u => '<option>' + esc(u.usuario) + '</option>').join('') + '</select>' +
@@ -381,7 +392,7 @@ function render() {
     ['Por vencer (≤ ' + CFG.dias + ' d)', v.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', v.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.filter(r => r.sinFecha).length]]
     .map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('');
   $('urg').innerHTML = CUR ? '<tr><th>Nro</th><th>Víctima</th><th>Dirección</th><th>Expediente</th><th>Riesgo</th><th>Última visita</th><th>Plazo</th></tr>' +
-    urgent().slice(0, 15).map(r => '<tr class="c" onclick="openExp(\'' + esc(r.key) + '\')"><td>' + esc(r.nro) + '</td><td>' + esc(r.victima) + '</td><td>' + esc(r.direccion) + '</td><td>' + esc(r.expediente) + '</td><td>' + esc(r.riesgo) + '</td><td>' + (r.ultima || '—') + '</td><td>' + badge(r) + '</td></tr>').join('')
+    urgent().slice(0, 15).map(r => '<tr class="c" onclick="openExp(\'' + esc(r.key) + '\')"><td>' + esc(r.nro) + '</td><td>' + esc(r.etq) + '</td><td>' + esc(r.direccion) + '</td><td>' + esc(r.expediente) + '</td><td>' + esc(r.riesgo) + '</td><td>' + (r.ultima || '—') + '</td><td>' + badge(r) + '</td></tr>').join('')
     : '<tr><td>No hay un cuadro abierto. Usa «Cambiar de cuadro» (abajo a la izquierda).</td></tr>';
   if (tab === 'exp') renderTab();
   if (tab === 'mapa') renderMapa();
@@ -416,7 +427,7 @@ function renderTab() {
 function openExp(key) {
   const r = D.find(x => x.key === key); if (!r) return;
   const hoy = hoyLocal();
-  const F = [['Víctima', r.victima], ['Edad / sexo', r.edad + ' / ' + r.sexo], ['Celular', r.celular], ['DNI', r.dni], ['Dirección', r.direccion], ['Expediente', r.expediente], ['Fecha de registro', r.fReg], ['Fecha de resolución', r.fRes], ['Tipo de violencia', r.violencia], ['Agresor', r.agresor], ['Riesgo', r.riesgo], ['Mes de informe', r.mes], ['Vigencia', r.vigencia], ['B.P (botón de pánico)', r.bp], ['Coordenadas', r.lat ? r.lat.toFixed(6) + ', ' + r.lng.toFixed(6) : 'Sin coordenadas (se usa la dirección)'], ['Próxima visita', r.proxima]];
+  const F = [['Víctima', r.victima || '(sin nombre en el Excel)'], ['Edad / sexo', r.edad + ' / ' + r.sexo], ['Celular', r.celular], ['DNI', r.dni], ['Dirección', r.direccion], ['Expediente', r.expediente], ['Fecha de registro', r.fReg], ['Fecha de resolución', r.fRes], ['Tipo de violencia', r.violencia], ['Agresor', r.agresor], ['Riesgo', r.riesgo], ['Mes de informe', r.mes], ['Vigencia', r.vigencia], ['B.P (botón de pánico)', r.bp], ['Coordenadas', r.lat ? r.lat.toFixed(6) + ', ' + r.lng.toFixed(6) : 'Sin coordenadas (se usa la dirección)'], ['Próxima visita', r.proxima]];
   const pt = r.participantes.length ? '<h4>Otras personas del expediente</h4><table>' + r.participantes.map(p => '<tr><td>' + esc(p.nombre) + '</td><td>' + esc(p.edad) + ' ' + esc(p.sexo) + '</td><td>' + esc(p.dni) + '</td><td>' + esc(p.celular) + '</td><td>' + esc(p.direccion) + '</td></tr>').join('') + '</table>' : '';
   const ex = Object.keys(r.extras).length ? '<details><summary>Otras columnas</summary><dl class="g2">' + Object.entries(r.extras).map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></details>' : '';
   const vs = r.visitas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).map(v => '<tr><td>' + (v.fecha || '—') + '</td><td>' + esc(v.tipo) + '</td><td>' + esc(v.texto || v.obs || '') + '</td><td>' + (v.tipo === 'Excel' ? '' : '<button class="s" onclick="anular(\'' + esc(v.id) + '\')">Anular</button>') + '</td></tr>').join('');
@@ -477,7 +488,7 @@ function ubicar(k) {
   document.querySelector('[data-t=mapa]').click();      // abre la pestaña y crea el mapa
   placing = k;
   $('ban').classList.remove('hide');
-  $('ban').innerHTML = '<span>Haz clic sobre la casa de <b>' + esc(r.victima) + '</b></span><input id="gq" style="flex:1;min-width:150px" placeholder="Buscar calle o zona"><button class="s" onclick="geo($(\'gq\').value)">Buscar</button><button class="s" onclick="cancelar()">Cancelar</button>';
+  $('ban').innerHTML = '<span>Haz clic sobre la casa de <b>' + esc(r.etq) + '</b></span><input id="gq" style="flex:1;min-width:150px" placeholder="Buscar calle o zona"><button class="s" onclick="geo($(\'gq\').value)">Buscar</button><button class="s" onclick="cancelar()">Cancelar</button>';
   $('gq').value = limpiaDir(r.direccion);
   map.getContainer().classList.add('placing');
   if (r.lat) map.flyTo([r.lat, r.lng], 18); else geo($('gq').value);
@@ -538,9 +549,9 @@ function renderMapa() {
   if (origen) L.circleMarker([origen.lat, origen.lng], { radius: 10, color: '#7b1fa2', fillColor: '#7b1fa2', fillOpacity: .9 }).addTo(grp).bindPopup('Mi ubicación');
   D.filter(r => r.lat).forEach(r => {
     mk[r.key] = L.circleMarker([r.lat, r.lng], { radius: 7, color: '#222', weight: 1, fillOpacity: .9, fillColor: r.dias == null ? '#777' : r.dias < 0 ? '#b3261e' : r.dias <= CFG.dias ? '#b26a00' : '#2e7d4f' })
-      .addTo(grp).bindPopup('<b>' + esc(r.victima) + '</b><br>' + esc(r.direccion) + '<br><a href="#" onclick="regVisita(\'' + esc(r.key) + '\');return false">✔ Registrar visita</a> · <a href="#" onclick="openExp(\'' + esc(r.key) + '\');return false">Abrir expediente</a>');
+      .addTo(grp).bindPopup('<b>' + esc(r.etq) + '</b><br>' + esc(r.direccion) + '<br><a href="#" onclick="regVisita(\'' + esc(r.key) + '\');return false">✔ Registrar visita</a> · <a href="#" onclick="openExp(\'' + esc(r.key) + '\');return false">Abrir expediente</a>');
   });
-  $('lst').innerHTML = mapList().map(r => '<div class="it"><div><a href="#" onclick="verEnMapa(\'' + esc(r.key) + '\');return false"><b>' + esc(r.victima) + '</b></a> ' + badge(r) +
+  $('lst').innerHTML = mapList().map(r => '<div class="it"><div><a href="#" onclick="verEnMapa(\'' + esc(r.key) + '\');return false"><b>' + esc(r.etq) + '</b></a> ' + badge(r) +
     '<small>' + esc(r.direccion) + (r.lat ? '' : ' · sin coordenadas (se usará la dirección)') + '</small>' +
     '<label class="inc"><input type="checkbox" ' + (selSet.has(r.key) ? 'checked ' : '') + 'onchange="tog(\'' + esc(r.key) + '\',this.checked)"> Incluir en la ruta</label></div>' +
     '<button class="p" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button></div>').join('') || '<p>No hay visitas pendientes.</p>';
@@ -557,7 +568,7 @@ async function verEnMapa(key) {
   const g = await nomi(r.direccion);
   if (!g) return toast('No se encontró la dirección. Usa "Editar datos" para fijar su ubicación.');
   L.circleMarker([g.lat, g.lng], { radius: 9, color: '#b26a00', fillOpacity: .4, dashArray: '3' }).addTo(tmp)
-    .bindPopup('<b>' + esc(r.victima) + '</b><br>Ubicación aproximada, según la dirección<br><a href="#" onclick="editar(\'' + esc(key) + '\');return false">Editar datos para fijar la ubicación</a>').openPopup();
+    .bindPopup('<b>' + esc(r.etq) + '</b><br>Ubicación aproximada, según la dirección<br><a href="#" onclick="editar(\'' + esc(key) + '\');return false">Editar datos para fijar la ubicación</a>').openPopup();
   map.flyTo([g.lat, g.lng], 16);
 }
 
@@ -590,7 +601,7 @@ function limpiarMapa() {
 /* Registrar visita (marca como visitada) */
 function regVisita(k) {
   const r = D.find(x => x.key === k); if (!r) return; const hoy = hoyLocal();
-  $('dlg').innerHTML = '<h3 style="margin-top:0">Registrar visita</h3><p><b>' + esc(r.victima) + '</b><br><small>' + esc(r.direccion) + '</small></p>' +
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Registrar visita</h3><p><b>' + esc(r.etq) + '</b><br><small>' + esc(r.direccion) + '</small></p>' +
     '<div class="bar"><label>Fecha<br><input type="date" id="rv_f" value="' + hoy + '" max="' + hoy + '"></label><label>Tipo<br><select id="rv_t"><option>Presencial</option><option>Telefónica</option></select></label></div>' +
     '<label style="display:block;font-size:13px;color:var(--mute);margin-bottom:8px">Lo que refiere (opcional)<br><textarea id="rv_o" rows="2" style="width:100%"></textarea></label>' +
     '<div class="bar"><button class="p" id="rv_ok" onclick="confirmarVisita(\'' + esc(k) + '\')">✔ Confirmar visita</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
@@ -616,7 +627,7 @@ async function pedirRuta(c) {   // prueba dos servidores de rutas; si ninguno re
 function pintaRuta() {
   if (!rutaPts.length) { $('rta').innerHTML = ''; return; }
   $('rta').innerHTML = '<b>Ruta (' + rutaPts.length + ' paradas)</b><ol style="padding-left:20px;margin:6px 0">' + rutaPts.map(r => '<li style="margin-bottom:6px">' +
-    (rutaDone.has(r.key) ? '<s>' + esc(r.victima) + '</s> ✔ visitada' : esc(r.victima) + (r.aprox ? ' <small>(aprox.)</small>' : '') + ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>') + '</li>').join('') +
+    (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada' : esc(r.etq) + (r.aprox ? ' <small>(aprox.)</small>' : '') + ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>') + '</li>').join('') +
     '</ol><small>' + esc(rutaInfo) + '</small>';
 }
 
@@ -633,9 +644,9 @@ $('go').onclick = async () => {
     let pts = [], sin = [];
     for (const r of D.filter(x => selSet.has(x.key))) {
       if (r.lat) { pts.push(r); continue; }
-      busyTxt('Buscando la dirección de ' + r.victima + '…');
+      busyTxt('Buscando la dirección de ' + r.etq + '…');
       const g = await geoAprox(r);
-      if (g) pts.push(Object.assign({}, r, g, { aprox: true })); else sin.push(r.victima);
+      if (g) pts.push(Object.assign({}, r, g, { aprox: true })); else sin.push(r.etq);
     }
     if (id !== rutaId) return;
     if (sin.length) toast('No se encontró la dirección de: ' + sin.join(', '));
@@ -726,7 +737,7 @@ function ubicarNuevo() {
 }
 function guardarForm() {
   leerForm();
-  if (!draft.victima) return toast('Falta el nombre de la víctima');
+  if (!draft.victima && !editKey) return toast('Falta el nombre de la víctima');
   if (!draft.expediente) return toast('Falta el número de expediente');
   $('gn').disabled = true;
   const edit = !!editKey, p = edit ? call('updateRow', editKey, draft) : call('addRow', draft);

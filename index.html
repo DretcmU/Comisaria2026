@@ -521,6 +521,7 @@ function candidatos(dir) {   // del más preciso al más general: dirección lim
   for (const n of [3, 2]) { const p = w.slice(0, n); if (w.length > n && !ART_.test(p[p.length - 1])) o.push(p.join(' ')); }
   return [...new Set(o.filter(x => x && x.length >= 4))];
 }
+const gc = {};   // direcciones ya ubicadas en esta sesión
 let nomLast = 0;
 async function nomFetch(q) {   // Nominatim exige máximo 1 consulta por segundo
   const w = nomLast + 1100 - Date.now(); if (w > 0) await new Promise(s => setTimeout(s, w));
@@ -783,7 +784,7 @@ function guardarForm() {
   p.then(r => { toast(edit ? 'Cambios guardados' : 'Registro agregado: Nro ' + r.nro); draft = {}; editKey = null; $('dlg').close(); load(); })
    .catch(() => { $('gn').disabled = false; });
 }
-window.addEventListener('unhandledrejection', e => e.preventDefault());   // los errores ya se muestran con toast
+window.addEventListener('unhandledrejection', e => { e.preventDefault(); console.error('Error no controlado:', e.reason); });   // los errores del servidor ya se muestran con toast; los demás quedan en la consola (F12)
 
 function setOrigen(lat, lng, tipo) {
   origen = { lat, lng }; $('orgSel').value = tipo || 'punto';

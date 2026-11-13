@@ -512,32 +512,36 @@ async function generarDocs() {
   try { const fs = await call('generarDocumentos', EX.key, d); for (const f of fs) { dl(f); await new Promise(r => setTimeout(r, 600)); } $('dlg').close(); toast('Word generado: ' + fs.map(f => f.name).join(', ')); }
   catch (e) { $('x_go').disabled = false; $('x_go').textContent = 'Generar Word'; }
 }
-const limpiaDir = s => String(s).replace(/\b(MZ|LT|LTE|LOTE|MANZANA)\b\.?\s*[\w\-]+/gi, '').replace(/^\s*(ASOC(IACION|\.)?|AA\.?HH\.?|URB\.?)\s*/i, '').replace(/\s+/g, ' ').trim();
-function ubicar(k) {
-  const r = D.find(x => x.key === k); if (!r) return;
-  if ($('dlg').open) $('dlg').close();
-  document.querySelector('[data-t=mapa]').click();      // abre la pestaña y crea el mapa
-  placing = k;
-  $('ban').classList.remove('hide');
-  $('ban').innerHTML = '<span>Haz clic sobre la casa de <b>' + esc(r.etq) + '</b></span><input id="gq" style="flex:1;min-width:150px" placeholder="Buscar calle o zona"><button class="s" onclick="geo($(\'gq\').value)">Buscar</button><button class="s" onclick="cancelar()">Cancelar</button>';
-  $('gq').value = limpiaDir(r.direccion);
-  map.getContainer().classList.add('placing');
-  if (r.lat) map.flyTo([r.lat, r.lng], 18); else geo($('gq').value);
+// Dirección "de la comisaría" -> texto que entiende el buscador: sin manzana, lote ni prefijos (ASOC., AA.HH., URB.)
+const limpiaDir = s => String(s).replace(/\b(SUB\s*)?(MZA?|MANZANA|LTE?|LOTE)\b\.?\s*[\w\-]+/gi, ' ').replace(/^\s*(ASOC(IACION|\.)?|AA\.?\s*HH\.?|A\.?\s*H\.?|URB(ANIZACION|\.)?|P\.?\s*J\.?)\s*/i, '')
+  .replace(/[,;·]+/g, ' ').replace(/\s+/g, ' ').trim();
+const RELLENO_ = /^(SUB|ZONA|SECTOR|ETAPA|NRO|N°|NO)$/i, ART_ = /^(DE|DEL|LA|LAS|LOS|EL|Y)$/i;
+function candidatos(dir) {   // del más preciso al más general: dirección limpia, nombre de la asociación o zona, sus primeras palabras
+  const c = limpiaDir(dir), w = c.split(' ').filter(x => x && !/^\d+$/.test(x) && !RELLENO_.test(x)), o = [c, w.join(' ')];
+  for (const n of [3, 2]) { const p = w.slice(0, n); if (w.length > n && !ART_.test(p[p.length - 1])) o.push(p.join(' ')); }
+  return [...new Set(o.filter(x => x && x.length >= 4))];
 }
-function cancelar() { placing = null; placingNew = false; $('ban').classList.add('hide'); if (map) map.getContainer().classList.remove('placing'); }
-const gc = {};
-
-async function nomi(q) {   // Nominatim: máximo 1 consulta por segundo
+let nomLast = 0;
+async function nomFetch(q) {   // Nominatim exige máximo 1 consulta por segundo
+  const w = nomLast + 1100 - Date.now(); if (w > 0) await new Promise(s => setTimeout(s, w));
+  nomLast = Date.now();
+  return (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(q + ', Arequipa'))).json();
+}
+async function nomi(dir) {   // prueba de lo más preciso a lo más general; devuelve null si nada coincide
   busyOn('Buscando la dirección…');
   try {
-    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(limpiaDir(q) + ', Arequipa, Perú'))).json();
-    return j.length ? { lat: +j[0].lat, lng: +j[0].lon } : null;
+    for (const q of candidatos(dir)) {
+      const j = await nomFetch(q);
+      if (j.length) return { lat: +j[0].lat, lng: +j[0].lon, por: q };
+    }
+    return null;
   } catch (e) { return null; } finally { busyOff(); }
 }
 
-async function geoAprox(r) {   // sin coordenadas: se usa el texto de la dirección (ubicación aproximada)
-  if (!(r.key in gc)) { await new Promise(s => setTimeout(s, 1100)); gc[r.key] = await nomi(r.direccion); }
-  return gc[r.key];
+async function geoAprox(r) {   // sin coordenadas: se usa el texto de la dirección (ubicación aproximada). Solo se recuerdan los aciertos.
+  const k = r.key + '|' + r.direccion;
+  if (!gc[k]) gc[k] = await nomi(r.direccion);
+  return gc[k];
 }
 function geo(q) {
   if (!q) return;
@@ -674,15 +678,17 @@ $('go').onclick = async () => {
       renderMapa();
     } else if ($('orgSel').value === 'base') origen = null;
     let pts = [], sin = [];
-    for (const r of D.filter(x => selSet.has(x.key))) {
+    const marcados = D.filter(x => selSet.has(x.key));
+    if (!marcados.length) return toast('Marca al menos una visita con "Incluir en la ruta"');
+    for (const r of marcados) {
       if (r.lat) { pts.push(r); continue; }
       busyTxt('Buscando la dirección de ' + r.etq + '…');
       const g = await geoAprox(r);
       if (g) pts.push(Object.assign({}, r, g, { aprox: true })); else sin.push(r.etq);
     }
     if (id !== rutaId) return;
-    if (sin.length) toast('No se encontró la dirección de: ' + sin.join(', '));
-    if (!pts.length) return toast('Marca al menos una visita con "Incluir en la ruta"');
+    const avisoSin = () => alert('No se pudo ubicar por su dirección a:\n\n• ' + sin.join('\n• ') + '\n\nFija su ubicación en el expediente: «Editar datos» → «Marcar en el mapa». ' + (pts.length ? 'La ruta se calculó sin esa(s) parada(s).' : ''));
+    if (!pts.length) return avisoSin();
     busyTxt('Calculando la ruta…');
     if ($('ord').value === 'urg') pts.sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
     else { const o = []; let cur = origen || CFG.base; while (pts.length) { pts.sort((a, b) => hav(cur, a) - hav(cur, b)); cur = pts.shift(); o.push(cur); } pts = o; }
@@ -697,6 +703,7 @@ $('go').onclick = async () => {
     if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: '#1a5fd0', weight: 5 } }).addTo(map); rutaInfo = (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min (sin tráfico)'; }
     else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
     map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
+    if (sin.length) setTimeout(avisoSin, 300);
   } finally { btn.disabled = false; busyOff(); }
 };
 

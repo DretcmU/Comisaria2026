@@ -530,7 +530,7 @@ const gc = {};
 async function nomi(q) {   // Nominatim: máximo 1 consulta por segundo
   busyOn('Buscando la dirección…');
   try {
-    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(limpiaDir(q) + ', Arequipa, Perú'))).json();
+    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(limpiaDir(q) + ', Arequipa, Perú'))).json();
     return j.length ? { lat: +j[0].lat, lng: +j[0].lon } : null;
   } catch (e) { return null; } finally { busyOff(); }
 }
@@ -541,7 +541,7 @@ async function geoAprox(r) {   // sin coordenadas: se usa el texto de la direcci
 }
 function geo(q) {
   if (!q) return;
-  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(q + ', Arequipa, Perú'))
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(q + ', Arequipa, Perú'))
     .then(r => r.json()).then(j => { if (j.length) map.flyTo([+j[0].lat, +j[0].lon], 17); else toast('No se encontró la zona: mueve el mapa y haz clic en la casa'); })
     .catch(() => toast('No se pudo buscar la dirección: mueve el mapa manualmente'));
 }
@@ -551,7 +551,8 @@ let rg, tmp, mk = {}, rutaPts = [], rutaDone = new Set(), rutaInfo = '', resBusq
 function hoyLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function initMap() {
   if (map) return;
-  map = L.map('map').setView([CFG.base.lat, CFG.base.lng], 13);
+  const AQP = L.latLngBounds([-16.65, -71.85], [-16.10, -71.30]);   // Arequipa metropolitana: el mapa no sale de esta zona
+  map = L.map('map', { minZoom: 11, maxBounds: AQP, maxBoundsViscosity: 1 }).setView([CFG.base.lat, CFG.base.lng], 13);
   const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' }).addTo(map);
   const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
   const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
@@ -608,7 +609,7 @@ async function buscarLugar() {
     const q = $('ms').value.trim(); if (!q) return;
   busyOn('Buscando la zona…');
   try {
-    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.75,-16.25,-71.40,-16.55&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
+    const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
     resBusq = j;
     $('mres').innerHTML = j.length ? '<small>Elige un resultado:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
     } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; } finally { busyOff(); }

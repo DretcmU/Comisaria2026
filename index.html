@@ -76,7 +76,9 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 <button data-t="admin" id="navAdmin" class="hide">Administración</button>
 <small id="user"></small><small id="cuaN"></small><select id="cuaSel" class="hide" title="Cambiar de cuadro" aria-label="Cambiar de cuadro"></select><button id="bpass">Cambiar contraseña</button><button id="bout">Cerrar sesión</button></nav>
 <main>
-<section id="t-inicio"><h2>Inicio</h2><div class="kpis" id="kpis"></div>
+<section id="t-inicio"><h2>Inicio</h2>
+<div class="box"><b>Resumen de todos los cuadros</b><small class="help" style="margin:2px 0 6px">Haz clic en un cuadro para abrirlo. Si dos cuadros cubren los mismos años, sus expedientes aparecen en ambos.</small><table id="resg"><tr><td><small>Cargando…</small></td></tr></table></div>
+<h3 id="iniCua" style="margin:18px 0 8px"></h3><div class="kpis" id="kpis"></div>
 <div class="box"><b>Alertas de visita: las más urgentes</b><table id="urg"></table></div></section>
 
 <section id="t-exp" class="hide"><h2>Hoja de expedientes</h2>
@@ -175,7 +177,15 @@ function load(silent) {
     if (r.warnings && r.warnings.length) toast(r.warnings[0]);
   });
 }
-setInterval(() => { if (!TOKEN || !listo) return; api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) load(true); }).catch(e => { if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); }); }, 20000);
+let pollOn = false;
+function poll() {   // revisa si el Excel o los datos cambiaron (el servidor actualiza la copia del Excel si hace falta)
+  if (!TOKEN || !listo || pollOn || document.hidden) return;
+  pollOn = true;
+  api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) { toast('Hay cambios: actualizando…'); return load(true); } })
+    .catch(e => { if (/SESION_EXPIRADA/.test(e.message)) mostrarLogin('Tu sesión terminó. Ingresa de nuevo.'); }).finally(() => { pollOn = false; });
+}
+setInterval(poll, 10000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
 /* ----- Sesión (usuario y contraseña) ----- */
 let TOKEN = '', PWD = '', LU = '', ME = null, USR = [], CUA = [], admTab = 'mon';
 try { TOKEN = sessionStorage.getItem('tk') || ''; } catch (e) {}
@@ -249,12 +259,30 @@ function pintaSelCuadro(cs) {   // lista de cuadros en la barra lateral: se camb
   s.innerHTML = (CUR ? '' : '<option value="">— elegir cuadro —</option>') + cs.map(c => '<option value="' + esc(c.id) + '"' + (CUR && CUR.id === c.id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
   s.classList.toggle('hide', !cs.length);
 }
-$('cuaSel').onchange = async e => {
-  const id = e.target.value; if (!id || (CUR && CUR.id === id)) return;
+async function abrirCuadro(id) {
+  if (!id || (CUR && CUR.id === id)) return;
   if ($('dlg').open) $('dlg').close();
   try { await call('elegirCuadro', id); soloAdm = false; resetVista(); await load(); toast('Cuadro abierto: ' + (CUR ? CUR.nombre : '')); }
-  catch (err) { if (CUR) e.target.value = CUR.id; }
-};
+  catch (err) { if (CUR) $('cuaSel').value = CUR.id; }
+}
+$('cuaSel').onchange = e => abrirCuadro(e.target.value);
+
+/* Resumen de todos los cuadros (Inicio). Se pide en segundo plano y solo cuando cambian los datos. */
+let RG = null, rgVer = null, rgPend = false;
+function pintaResumen() {
+  if (!RG) return;
+  const n = (x, c) => x ? '<span class="b ' + c + '">' + x + '</span>' : '<span style="color:var(--mute)">0</span>';
+  $('resg').innerHTML = '<tr><th>Cuadro</th><th>Expedientes</th><th>Vigentes</th><th>Vencidas</th><th>Por vencer (≤ ' + CFG.dias + ' d)</th><th>Al día</th><th>Sin fecha de visita</th></tr>' +
+    RG.map(c => '<tr class="c" onclick="abrirCuadro(\'' + esc(c.id) + '\')"' + (CUR && CUR.id === c.id ? ' style="background:#eef6f1;font-weight:600"' : '') + '><td>' + esc(c.nombre) + (CUR && CUR.id === c.id ? ' <small>(abierto)</small>' : '') + '</td>' +
+      (c.error ? '<td colspan="6"><small>No se pudo leer: ' + esc(c.error) + '</small></td>' :
+      '<td>' + c.total + '</td><td>' + c.vigentes + '</td><td>' + n(c.vencidas, 'r') + '</td><td>' + n(c.porVencer, 'a') + '</td><td>' + n(c.alDia, 'g') + '</td><td>' + c.sinFecha + '</td>') + '</tr>').join('');
+}
+function resumen() {
+  if (!TOKEN || !listo) return;
+  if (tab !== 'inicio' || rgPend || rgVer === ver) return pintaResumen();
+  rgPend = true;
+  callQ('resumenGeneral').then(r => { RG = r; rgVer = ver; pintaResumen(); }).catch(() => {}).finally(() => { rgPend = false; });
+}
 async function doLogout() { try { await call('logout'); } catch (e) {} mostrarLogin(); }
 $('bout').onclick = doLogout;
 $('bpass').onclick = () => {
@@ -388,8 +416,11 @@ document.querySelectorAll('nav button[data-t]').forEach(b => b.onclick = () => {
 
 function render() {
   const v = D.filter(r => r.estado === 'Vigente');
-  $('kpis').innerHTML = [['Vigentes', v.length], ['Visitas vencidas', v.filter(r => r.dias < 0).length],
-    ['Por vencer (≤ ' + CFG.dias + ' d)', v.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', v.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.filter(r => r.sinFecha).length]]
+  $('iniCua').textContent = CUR ? 'Cuadro abierto: ' + CUR.nombre : '';
+  resumen();
+  const cd = v.filter(r => r.dias != null);   // con fecha para calcular el plazo
+  $('kpis').innerHTML = [['Vigentes', v.length], ['Visitas vencidas', cd.filter(r => r.dias < 0).length],
+    ['Por vencer (≤ ' + CFG.dias + ' d)', cd.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', cd.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.length - cd.length]]
     .map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('');
   $('urg').innerHTML = CUR ? '<tr><th>Nro</th><th>Víctima</th><th>Dirección</th><th>Expediente</th><th>Riesgo</th><th>Última visita</th><th>Plazo</th></tr>' +
     urgent().slice(0, 15).map(r => '<tr class="c" onclick="openExp(\'' + esc(r.key) + '\')"><td>' + esc(r.nro) + '</td><td>' + esc(r.etq) + '</td><td>' + esc(r.direccion) + '</td><td>' + esc(r.expediente) + '</td><td>' + esc(r.riesgo) + '</td><td>' + (r.ultima || '—') + '</td><td>' + badge(r) + '</td></tr>').join('')

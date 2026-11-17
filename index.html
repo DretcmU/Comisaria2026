@@ -129,7 +129,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SIN_TOKEN = new Set(['login']);
 // URL de la implementación (Apps Script → Implementar → Aplicación web). Si creas un proyecto nuevo, cámbiala aquí.
-const API_URL = 'https://script.google.com/macros/s/AKfycby66BH4odnBRo4t7eXRWQ9wA0zZATbVuTc2lIuuRc7aWwTm-mzGww-_-n-RHNwWtVY/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwQEg-A6PCldaHhQOgaEcbkaB0tsuNbDBI8xs-N9KrkZcoHcMbONmvmKYAfO9c1MOLf/exec';
   
 async function api(fn, args) {
   const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) });

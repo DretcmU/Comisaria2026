@@ -309,8 +309,7 @@ function renderAdmin() {
 const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido', SINCRONIZAR: 'Sincronización' };
 const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada' };
 async function admMon() {
-  $('adm').innerHTML = (r.aviso ? '<p class="lerr">' + esc(r.aviso) + '</p>' : '') + '<p style="margin-top:0">Cuadro abierto: <b>' + '<small>Cargando…</small>';
-  
+  $('adm').innerHTML = '<small>Cargando…</small>';
   const r = await call('adminResumen').catch(() => null);
   if (!r) { $('adm').innerHTML = '<p class="lerr">No se pudo cargar el monitoreo. Revisa el mensaje de error e intenta de nuevo.</p>'; return; }
   if (!r.porDia || !r.exp) { $('adm').innerHTML = '<p class="lerr">El servidor respondió con datos incompletos. Vuelve a desplegar el Apps Script como «Nueva versión».</p>'; return; }
@@ -318,13 +317,14 @@ async function admMon() {
   const mx = Math.max(1, ...r.porDia.map(d => d.acciones));
   const kp = [['Usuarios activos', r.usuarios.activos + ' / ' + r.usuarios.total], ['Conectados ahora', r.conectados.length], ['Accesos fallidos (24 h)', r.fallidos24], ['Expedientes', r.exp.total],
     ['Visitas vencidas', r.exp.vencidas], ['Por vencer', r.exp.porVencer], ['Sin fecha de visita', r.exp.sinFecha], ['Sin coordenadas', r.exp.sinCoord]];
-  $('adm').innerHTML = '<p style="margin-top:0">Cuadro abierto: <b>' + esc(r.cuadro || 'ninguno') + '</b> (los datos de expedientes son de este cuadro) · <a href="' + esc(r.datosUrl) + '" target="_blank" rel="noopener">Abrir UIXDATA (datos del aplicativo)</a></p>' +
+  $('adm').innerHTML = (r.aviso ? '<p class="lerr">' + esc(r.aviso) + '</p>' : '') +
+    '<p style="margin-top:0">Cuadro abierto: <b>' + esc(r.cuadro || 'ninguno') + '</b> (los datos de expedientes son de este cuadro) · <a href="' + esc(r.datosUrl) + '" target="_blank" rel="noopener">Abrir UIXDATA (datos del aplicativo)</a></p>' +
     '<div class="kpis">' + kp.map(k => '<div class="kpi"><b>' + k[1] + '</b><span>' + k[0] + '</span></div>').join('') + '</div>' +
     '<h4>Actividad de los últimos 7 días</h4>' + r.porDia.map(d => '<div class="brow"><span>' + d.dia.slice(5) + '</span><div class="bar2"><i style="width:' + Math.round(d.acciones / mx * 100) + '%"></i></div><span>' + d.acciones + ' acciones · ' + d.visitas + ' visitas</span></div>').join('') +
     '<h4>Actividad por usuario (30 días)</h4><table><tr><th>Usuario</th><th>Acciones</th><th>Visitas</th><th>Ediciones</th><th>Registros nuevos</th></tr>' +
     (r.porUsuario.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + u.total + '</td><td>' + u.visitas + '</td><td>' + u.ediciones + '</td><td>' + u.nuevos + '</td></tr>').join('') || '<tr><td colspan="5">Sin actividad</td></tr>') + '</table>' +
     '<h4>Conectados ahora</h4><p>' + (r.conectados.map(esc).join(', ') || '—') + '</p>' +
-    '<h4>Estado de los expedientes</h4><p>' + (Object.entries(r.exp.estados).map(([k, v]) => esc(k) + ': <b>' + v + '</b>').join(' · ') || '—') + '</p>' +
+    '<h4>Estado de los expedientes</h4><p>' + (Object.entries(r.exp.estados || {}).map(([k, v]) => esc(k) + ': <b>' + v + '</b>').join(' · ') || '—') + '</p>' +
     '<h4>Accesos recientes</h4><table><tr><th>Fecha</th><th>Usuario</th><th>Evento</th></tr>' + r.accesos.map(a => '<tr><td>' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(EVT[a.evento] || a.evento) + '</td></tr>').join('') + '</table>';
 }
 /* Cuadros = los .xlsx de la carpeta Data (se detectan solos) y su copia nativa en Data/Bridge */

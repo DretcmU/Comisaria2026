@@ -139,9 +139,9 @@ async function api(fn, args) {
 }
 
 let busyN = 0;
-const MSG = { login: 'Verificando tus datos…', inicio: 'Cargando…', elegirCuadro: 'Abriendo el cuadro…', getData: 'Cargando los datos del cuadro (si el Excel cambió, se actualiza la copia)…',
+const MSG = { login: 'Verificando tus datos…', inicio: 'Cargando…', elegirCuadro: 'Abriendo el cuadro…', getData: 'Cargando los datos del cuadro…',
   cambiarPassword: 'Guardando la contraseña…', saveVisit: 'Guardando la visita…', deleteVisit: 'Anulando la visita…', setEstado: 'Guardando el estado…', addRow: 'Guardando el registro en el Excel…',
-  updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminSincronizar: 'Sincronizando los Excel con la carpeta Bridge…',
+  updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminSincronizar: 'Revisando los Excel de la carpeta Data…',
   adminEditarCuadro: 'Guardando…', adminGuardarUsuario: 'Guardando el usuario…', adminResetPassword: 'Restableciendo la clave…', adminResumen: 'Cargando el monitoreo…', adminAuditoria: 'Buscando en el historial…',
   adminUsuarios: 'Cargando usuarios…', adminCuadros: 'Cargando cuadros…', logout: 'Cerrando sesión…' };
 function busyOn(m) { busyN++; $('busyT').textContent = m || 'Procesando…'; if (busyN === 1 && !$('busy').open) $('busy').showModal(); }
@@ -278,14 +278,14 @@ function pintaResumen() {
   const n = (x, c) => x ? '<span class="b ' + c + '">' + x + '</span>' : '<span style="color:var(--mute)">0</span>';
   $('resg').innerHTML = '<tr><th>Cuadro</th><th>Expedientes</th><th>Vigentes</th><th>Vencidas</th><th>Por vencer (≤ ' + CFG.dias + ' d)</th><th>Al día</th><th>Sin fecha de visita</th></tr>' +
     RG.map(c => '<tr class="c" onclick="abrirCuadro(\'' + esc(c.id) + '\')"' + (CUR && CUR.id === c.id ? ' style="background:#eef6f1;font-weight:600"' : '') + '><td>' + esc(c.nombre) + (CUR && CUR.id === c.id ? ' <small>(abierto)</small>' : '') + '</td>' +
-      (c.error ? '<td colspan="6"><small>No se pudo leer: ' + esc(c.error) + '</small></td>' :
+      (c.pendiente ? '<td colspan="6"><small>Leyendo el Excel…</small></td>' : c.error ? '<td colspan="6"><small>No se pudo leer: ' + esc(c.error) + '</small></td>' :
       '<td>' + c.total + '</td><td>' + c.vigentes + '</td><td>' + n(c.vencidas, 'r') + '</td><td>' + n(c.porVencer, 'a') + '</td><td>' + n(c.alDia, 'g') + '</td><td>' + c.sinFecha + '</td>') + '</tr>').join('');
 }
 function resumen() {
   if (!TOKEN || !listo) return;
   if (tab !== 'inicio' || rgPend || rgVer === ver) return pintaResumen();
   rgPend = true;
-  callQ('resumenGeneral').then(r => { RG = r; rgVer = ver; pintaResumen(); }).catch(() => {}).finally(() => { rgPend = false; });
+  callQ('resumenGeneral').then(r => { RG = r; rgVer = ver; pintaResumen(); if (r.some(x => x.pendiente)) { rgVer = null; setTimeout(resumen, 3000); } }).catch(() => {}).finally(() => { rgPend = false; });
 }
 async function doLogout() { try { await call('logout'); } catch (e) {} mostrarLogin(); }
 $('bout').onclick = doLogout;
@@ -327,22 +327,22 @@ async function admMon() {
     '<h4>Estado de los expedientes</h4><p>' + (Object.entries(r.exp.estados || {}).map(([k, v]) => esc(k) + ': <b>' + v + '</b>').join(' · ') || '—') + '</p>' +
     '<h4>Accesos recientes</h4><table><tr><th>Fecha</th><th>Usuario</th><th>Evento</th></tr>' + r.accesos.map(a => '<tr><td>' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(EVT[a.evento] || a.evento) + '</td></tr>').join('') + '</table>';
 }
-/* Cuadros = los .xlsx de la carpeta Data (se detectan solos) y su copia nativa en Data/Bridge */
+/* Cuadros = los .xlsx de la carpeta Data (se detectan solos; la app los lee directamente) */
 async function admCua() {
   $('adm').innerHTML = '<small>Cargando…</small>';
   const cs = await call('adminCuadros').catch(() => null); if (!cs) return; CUA = cs;
   const a = (href, t) => href ? ' <a class="s" style="text-decoration:none;color:inherit;display:inline-block" href="' + esc(href) + '" target="_blank" rel="noopener">' + t + '</a>' : '';
   $('adm').innerHTML = '<div class="bar"><button class="p" onclick="sincronizar()">⟳ Sincronizar ahora</button></div>' +
-    '<span class="help">Cada <b>.xlsx</b> de la carpeta <b>Data</b> es un cuadro; los nuevos aparecen solos. La aplicación lee de su copia en <b>Data/Bridge</b> (mismo nombre, formato de Google), que se actualiza sola cuando el Excel cambia: cada pocos minutos y al abrir el cuadro. Lo que se guarda desde la aplicación se escribe en el .xlsx original sin cambiar su formato. Un cuadro desactivado deja de aparecer, pero sus visitas y datos se conservan.</span>' +
-    (cs.length ? '<table><tr><th>Nombre</th><th>Archivo</th><th>Expedientes</th><th>Última sincronización</th><th>Estado</th><th></th></tr>' + cs.map(c => '<tr><td><b>' + esc(c.nombre) + '</b><br>' + (c.activo ? '<span class="b g">disponible</span>' : '<span class="b n">desactivado</span>') + '</td><td>' + esc(c.archivo) +
-      '</td><td>' + c.expedientes + '</td><td>' + esc(c.sincronizado || '—') + '</td><td style="max-width:280px"><small>' + esc(c.estado) + '</small></td><td style="white-space:nowrap"><button class="s" onclick="formCuadro(\'' + esc(c.id) + '\')">Editar</button> <button class="s" onclick="sincronizar(\'' + esc(c.id) + '\')">Resincronizar</button>' +
-      a(c.url, 'Excel') + a(c.bridgeUrl, 'Bridge') + '</td></tr>').join('') + '</table>'
+    '<span class="help">Cada <b>.xlsx</b> de la carpeta <b>Data</b> es un cuadro; los nuevos aparecen solos. La aplicación lee cada Excel directamente (valores y colores) y lo vuelve a leer solo cuando cambia. Lo que se guarda desde la aplicación se escribe en el .xlsx original sin cambiar su formato. Un cuadro desactivado deja de aparecer, pero sus visitas y datos se conservan.</span>' +
+    (cs.length ? '<table><tr><th>Nombre</th><th>Archivo</th><th>Expedientes</th><th>Última lectura</th><th>Estado</th><th></th></tr>' + cs.map(c => '<tr><td><b>' + esc(c.nombre) + '</b><br>' + (c.activo ? '<span class="b g">disponible</span>' : '<span class="b n">desactivado</span>') + '</td><td>' + esc(c.archivo) +
+      '</td><td>' + c.expedientes + '</td><td>' + esc(c.sincronizado || '—') + '</td><td style="max-width:280px"><small>' + esc(c.estado) + '</small></td><td style="white-space:nowrap"><button class="s" onclick="formCuadro(\'' + esc(c.id) + '\')">Editar</button> <button class="s" onclick="sincronizar(\'' + esc(c.id) + '\')">Volver a leer</button>' +
+      a(c.url, 'Excel') + '</td></tr>').join('') + '</table>'
       : '<p>Aún no hay cuadros. Pon los .xlsx en la carpeta Data y pulsa «Sincronizar ahora».</p>');
 }
 async function sincronizar(id) {
   try {
     const r = await call('adminSincronizar', { id: id || '' });
-    toast(id ? 'Cuadro resincronizado' : 'Listo: ' + r.nuevos + ' nuevos, ' + r.actualizados + ' actualizados' + (r.errores.length ? ' · errores: ' + r.errores.join(' | ') : ''));
+    toast(id ? 'Cuadro leído de nuevo' : 'Listo: ' + r.nuevos + ' nuevos, ' + r.actualizados + ' revisados' + (r.pendientes ? ', ' + r.pendientes + ' pendientes' : '') + (r.errores.length ? ' · errores: ' + r.errores.join(' | ') : ''));
   } catch (e) {}
   admCua();
 }

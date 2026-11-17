@@ -24,6 +24,8 @@ mark{background:#ffe98a}input,select,textarea{font:inherit;padding:8px;border:1p
 .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.bar input{flex:1;min-width:160px}
 button.p{background:var(--brand);color:#fff;border:0;padding:8px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
 button.s{background:#fff;border:1px solid #c9d2cc;padding:6px 10px;border-radius:8px;font:inherit;cursor:pointer}
+a.btn{display:inline-block;background:#fff;border:1px solid #c9d2cc;padding:6px 10px;border-radius:8px;font:inherit;color:var(--ink);text-decoration:none;cursor:pointer}
+a.btn:hover{background:#f0f6f2}
 button.p:disabled{opacity:.5}
 .map{display:grid;grid-template-columns:330px 1fr;gap:12px;height:calc(100vh - 215px);min-height:420px}
 #side{overflow:auto}#map{border-radius:10px;border:1px solid var(--line);min-height:380px}
@@ -83,6 +85,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 
 <section id="t-exp" class="hide"><h2>Hoja de expedientes</h2>
 <div class="bar"><input id="q" placeholder="Búsqueda general"><input id="qe" placeholder="N.º de expediente"><input id="qn" placeholder="Nombres y apellidos"><button class="p" onclick="nuevo()">+ Nuevo registro</button></div>
+<div class="bar" style="margin-top:-4px"><a id="abrirXlsx" class="btn hide" href="#" target="_blank" rel="noopener">📄 Abrir Excel original</a><small class="help" style="margin:0;align-self:center">Para agregar o corregir varias filas directamente en el Excel. La aplicación se actualiza sola.</small></div>
 <div class="hs" id="hojas"></div><div class="box"><div id="cnt" style="color:var(--mute);margin-bottom:6px"></div><div class="xw"><table id="tab" class="xt"></table></div></div></section>
 
 <section id="t-mapa" class="hide"><h2>Mapa y visitas</h2>
@@ -305,8 +308,12 @@ function renderAdmin() {
 const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido', SINCRONIZAR: 'Sincronización' };
 const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada' };
 async function admMon() {
-  $('adm').innerHTML = '<small>Cargando…</small>';
-  const r = await call('adminResumen').catch(() => null); if (!r) return;
+  $('adm').innerHTML = (r.aviso ? '<p class="lerr">' + esc(r.aviso) + '</p>' : '') + '<p style="margin-top:0">Cuadro abierto: <b>' + '<small>Cargando…</small>';
+  
+  const r = await call('adminResumen').catch(() => null);
+  if (!r) { $('adm').innerHTML = '<p class="lerr">No se pudo cargar el monitoreo. Revisa el mensaje de error e intenta de nuevo.</p>'; return; }
+  if (!r.porDia || !r.exp) { $('adm').innerHTML = '<p class="lerr">El servidor respondió con datos incompletos. Vuelve a desplegar el Apps Script como «Nueva versión».</p>'; return; }
+  r.conectados = r.conectados || []; r.porUsuario = r.porUsuario || []; r.accesos = r.accesos || [];
   const mx = Math.max(1, ...r.porDia.map(d => d.acciones));
   const kp = [['Usuarios activos', r.usuarios.activos + ' / ' + r.usuarios.total], ['Conectados ahora', r.conectados.length], ['Accesos fallidos (24 h)', r.fallidos24], ['Expedientes', r.exp.total],
     ['Visitas vencidas', r.exp.vencidas], ['Por vencer', r.exp.porVencer], ['Sin fecha de visita', r.exp.sinFecha], ['Sin coordenadas', r.exp.sinCoord]];
@@ -418,6 +425,7 @@ function render() {
   const v = D.filter(r => r.estado === 'Vigente');
   $('iniCua').textContent = CUR ? 'Cuadro abierto: ' + CUR.nombre : '';
   resumen();
+  const ax = $('abrirXlsx'); ax.classList.toggle('hide', !(CUR && CUR.url)); if (CUR && CUR.url) ax.href = CUR.url;
   const cd = v.filter(r => r.dias != null);   // con fecha para calcular el plazo
   $('kpis').innerHTML = [['Vigentes', v.length], ['Visitas vencidas', cd.filter(r => r.dias < 0).length],
     ['Por vencer (≤ ' + CFG.dias + ' d)', cd.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', cd.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.length - cd.length]]

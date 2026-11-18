@@ -85,7 +85,8 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 
 <section id="t-exp" class="hide"><h2>Hoja de expedientes</h2>
 <div class="bar"><input id="q" placeholder="Búsqueda general"><input id="qe" placeholder="N.º de expediente"><input id="qn" placeholder="Nombres y apellidos"><button class="p" onclick="nuevo()">+ Nuevo registro</button></div>
-<div class="bar" style="margin-top:-4px"><a id="abrirXlsx" class="btn hide" href="#" target="_blank" rel="noopener">📄 Abrir Excel original</a><small class="help" style="margin:0;align-self:center">Para agregar o corregir varias filas directamente en el Excel. La aplicación se actualiza sola.</small></div>
+<div class="bar" style="margin-top:-4px"><a id="abrirXlsx" class="btn hide" href="#" target="_blank" rel="noopener">📄 Abrir Excel original</a><small class="help" style="margin:0;align-self:center">Para agregar o corregir varias filas directamente en el Excel. La aplicación se actualiza sola cuando Drive guarda el archivo. <span id="exGuard"></span></small></div>
+<div id="extAviso" class="ban hide"></div>
 <div class="hs" id="hojas"></div><div class="box"><div id="cnt" style="color:var(--mute);margin-bottom:6px"></div><div class="xw"><table id="tab" class="xt"></table></div></div></section>
 
 <section id="t-mapa" class="hide"><h2>Mapa y visitas</h2>
@@ -183,7 +184,7 @@ function load(silent) {
   });
 }
 let pollOn = false;
-function poll() {   // revisa si el Excel o los datos cambiaron (el servidor actualiza la copia del Excel si hace falta)
+function poll() {   // cada 10 s: ¿cambió el contenido del Excel abierto o los datos de la app? Si sí, recarga en silencio
   if (!TOKEN || !listo || pollOn || document.hidden) return;
   pollOn = true;
   api('getVersion', [TOKEN]).then(v => { if (v !== ver && !$('dlg').open && listo) { toast('Hay cambios: actualizando…'); return load(true); } })
@@ -428,6 +429,9 @@ function render() {
   $('iniCua').textContent = CUR ? 'Cuadro abierto: ' + CUR.nombre : '';
   resumen();
   const ax = $('abrirXlsx'); ax.classList.toggle('hide', !(CUR && CUR.url)); if (CUR && CUR.url) ax.href = CUR.url;
+  $('exGuard').textContent = CUR && CUR.guardado ? '· Última vez guardado en Drive: ' + CUR.guardado : '';
+  $('extAviso').classList.toggle('hide', !(CUR && CUR.externo));
+  $('extAviso').innerHTML = '⚠ Alguien guardó cambios <b>directamente en el Excel</b> hace poco (' + esc(CUR && CUR.guardado || '') + '). Si todavía lo está editando, espera a que termine antes de agregar o editar registros desde la aplicación: lo que tenga a medio escribir y aún no se haya guardado en Drive podría chocar con lo tuyo.';
   const cd = v.filter(r => r.dias != null);   // con fecha para calcular el plazo
   $('kpis').innerHTML = [['Vigentes', v.length], ['Visitas vencidas', cd.filter(r => r.dias < 0).length],
     ['Por vencer (≤ ' + CFG.dias + ' d)', cd.filter(r => r.dias >= 0 && r.dias <= CFG.dias).length], ['Al día', cd.filter(r => r.dias > CFG.dias).length], ['Sin fecha de visita', v.length - cd.length]]
@@ -848,6 +852,7 @@ function guardarForm() {
   leerForm();
   if (!draft.victima && !editKey) return toast('Falta el nombre de la víctima');
   if (!draft.expediente) return toast('Falta el número de expediente');
+  if (CUR && CUR.externo && !confirm('Alguien guardó cambios directamente en el Excel hace poco (' + (CUR.guardado || '') + ').\n\nLa aplicación no sobrescribe lo que ya está guardado en Drive, pero si esa persona todavía está escribiendo una fila, podrían chocar.\n\n¿Guardar de todos modos?')) return;
   $('gn').disabled = true;
   const edit = !!editKey, p = edit ? call('updateRow', editKey, draft) : call('addRow', draft);
   p.then(r => { toast(edit ? 'Cambios guardados' : 'Registro agregado: Nro ' + r.nro); draft = {}; editKey = null; $('dlg').close(); load(); })

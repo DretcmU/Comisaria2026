@@ -98,8 +98,9 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
   <div class="mrow">
     <label>Salir desde <select id="orgSel"><option value="base">La comisaría</option><option value="gps">Mi ubicación actual</option><option value="punto" hidden>Punto elegido en el mapa</option></select></label>
     <label>Orden <select id="ord"><option value="cerca">Más cercana primero</option><option value="urg">Más urgente primero</option></select></label>
+    <label>Ir <select id="modo"><option value="car">🚗 En carro</option><option value="foot">🚶 A pie</option></select></label>
     <span class="sep"></span>
-    <span id="selN" style="font-size:13px;color:var(--mute)">0 visitas marcadas</span>
+    <span id="selN" style="font-size:13px;color:var(--mute)">0 paradas marcadas</span>
     <button class="p" id="go">▶ Iniciar ruta</button>
   </div>
   <div id="mres"></div>
@@ -107,7 +108,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 <div id="ban" class="ban hide"></div>
 <div class="map"><div class="box" id="side">
   <b>Visitas por vencer y vencidas</b>
-  <span class="help">Marca con <b>Incluir en la ruta</b> las visitas del recorrido y pulsa <b>▶ Iniciar ruta</b>. Usa <b>✔ Registrar visita</b> cuando la visita ya se hizo.</span>
+  <span class="help">El mapa solo muestra la comisaría; cada visita aparece al marcarla con <b>Incluir en la ruta</b> (también puedes incluir resultados del buscador). Elige <b>En carro</b> o <b>A pie</b> y pulsa <b>▶ Iniciar ruta</b>. Usa <b>✔ Registrar visita</b> cuando la visita ya se hizo.</span>
   <div id="lst"></div>
   <div id="rta"></div></div>
 <div id="map"></div></div></section>
@@ -249,7 +250,7 @@ function pintaCuadros(r, volver) {
   $('login').classList.remove('hide');
 }
 function resetVista() {   // limpia todo lo que dependía del cuadro anterior
-  selSet.clear(); origen = null; rutaPts = []; rutaDone = new Set(); rutaInfo = ''; hojaSel = ''; rutaId++; placing = null; placingNew = false; placingOrigen = false; D = []; draft = {}; editKey = null;
+  selSet.clear(); selBusq.clear(); if (selL) selL.clearLayers(); origen = null; rutaPts = []; rutaDone = new Set(); rutaInfo = ''; hojaSel = ''; rutaId++; placing = null; placingNew = false; placingOrigen = false; D = []; draft = {}; editKey = null;
   $('q').value = ''; $('qe').value = ''; $('qn').value = ''; $('rta').innerHTML = ''; $('orgSel').value = 'base'; selTxt(); $('mres').innerHTML = ''; $('ms').value = ''; $('ban').classList.add('hide');
   if (map) { if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers(); map.getContainer().classList.remove('placing'); map.setView([CFG.base.lat, CFG.base.lng], 13); }
 }
@@ -540,9 +541,11 @@ async function nomFetch(q) {   // Nominatim exige máximo 1 consulta por segundo
 async function nomi(dir) {   // prueba de lo más preciso a lo más general; devuelve null si nada coincide
   busyOn('Buscando la dirección…');
   try {
-    for (const q of candidatos(dir)) {
-      const j = await nomFetch(q);
-      if (j.length) return { lat: +j[0].lat, lng: +j[0].lon, por: q };
+    const RADIOS = [120, 200, 350, 500];   // cuanto más general la coincidencia, más grande el área estimada (metros)
+    const cs = candidatos(dir);
+    for (let i = 0; i < cs.length; i++) {
+      const j = await nomFetch(cs[i]);
+      if (j.length) return { lat: +j[0].lat, lng: +j[0].lon, por: cs[i], radio: RADIOS[Math.min(i, RADIOS.length - 1)] };
     }
     return null;
   } catch (e) { return null; } finally { busyOff(); }
@@ -561,7 +564,8 @@ function geo(q) {
 }
 
 /* ----- Mapa y rutas ----- */
-let rg, tmp, mk = {}, rutaPts = [], rutaDone = new Set(), rutaInfo = '', resBusq = [], rutaId = 0;
+let rg, tmp, selL, mk = {}, rutaPts = [], rutaDone = new Set(), rutaInfo = '', resBusq = [], rutaId = 0;
+const selBusq = new Map();   // resultados del buscador marcados con "Incluir en la ruta" (clave -> parada)
 function hoyLocal() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function initMap() {
   if (map) return;
@@ -571,7 +575,7 @@ function initMap() {
   const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
   const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri' });
   L.control.layers({ 'Calles': esri, 'OpenStreetMap': osm, 'Satélite': sat }).addTo(map);
-  grp = L.layerGroup().addTo(map); rg = L.layerGroup().addTo(map); tmp = L.layerGroup().addTo(map);
+  grp = L.layerGroup().addTo(map); selL = L.layerGroup().addTo(map); rg = L.layerGroup().addTo(map); tmp = L.layerGroup().addTo(map);
   map.on('click', e => {
     if (placingNew) {   // la ubicación solo se cambia desde "Nuevo registro" o "Editar datos"
       draft.lat = e.latlng.lat.toFixed(6); draft.lng = e.latlng.lng.toFixed(6); cancelar();
@@ -583,8 +587,49 @@ function initMap() {
 }
 const mapList = () => D.filter(r => (r.dias != null && r.dias <= CFG.dias) || r.sinFecha).sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
 
-const selTxt = () => { $('selN').textContent = selSet.size + (selSet.size === 1 ? ' visita marcada' : ' visitas marcadas'); };
-const tog = (k, on) => { on ? selSet.add(k) : selSet.delete(k); selTxt(); };
+const selTxt = () => { const n = selSet.size + selBusq.size; $('selN').textContent = n + (n === 1 ? ' parada marcada' : ' paradas marcadas'); };
+const gcKey = r => r.key + '|' + r.direccion;
+const popupDe = r => '<b>' + esc(r.etq) + '</b><br>' + esc(r.direccion) + '<br><a href="#" onclick="regVisita(\'' + esc(r.key) + '\');return false">✔ Registrar visita</a> · <a href="#" onclick="openExp(\'' + esc(r.key) + '\');return false">Abrir expediente</a>';
+
+/* Puntos marcados con "Incluir en la ruta": solo estos (además de la comisaría) se dibujan en el mapa.
+   Con coordenadas -> punto; sin coordenadas -> área estimada (círculo) según su dirección escrita. */
+function pintaSel() {
+  if (!selL) return; selL.clearLayers();
+  const enRuta = new Set(rutaPts.map(p => p.key));   // las paradas de una ruta ya iniciada se dibujan numeradas
+  D.filter(r => selSet.has(r.key) && !enRuta.has(r.key)).forEach(r => {
+    if (r.lat) {
+      mk[r.key] = L.circleMarker([r.lat, r.lng], { radius: 7, color: '#222', weight: 1, fillOpacity: .9, fillColor: r.dias == null ? '#777' : r.dias < 0 ? '#b3261e' : r.dias <= CFG.dias ? '#b26a00' : '#2e7d4f' })
+        .addTo(selL).bindPopup(popupDe(r));
+      return;
+    }
+    const g = gc[gcKey(r)]; if (!g) return;
+    mk[r.key] = L.circle([g.lat, g.lng], { radius: g.radio || 200, color: '#b26a00', weight: 2, dashArray: '5', fillColor: '#b26a00', fillOpacity: .18 })
+      .addTo(selL).bindPopup(popupDe(r) + '<br><small>Zona aproximada (~' + (g.radio || 200) + ' m), según la dirección. Para fijar el punto exacto usa «Editar datos».</small>');
+    L.circleMarker([g.lat, g.lng], { radius: 4, color: '#b26a00', fillColor: '#b26a00', fillOpacity: 1 }).addTo(selL).bindPopup(popupDe(r));
+  });
+  selBusq.forEach(x => { if (!enRuta.has(x.key)) L.circleMarker([x.lat, x.lng], { radius: 8, color: '#7b1fa2', fillColor: '#7b1fa2', fillOpacity: .6 }).addTo(selL).bindPopup('<b>' + esc(x.etq) + '</b><br>' + esc(x.direccion)); });
+}
+async function tog(k, on) {
+  if (!on) { selSet.delete(k); selTxt(); pintaSel(); return; }
+  selSet.add(k); selTxt();
+  const r = D.find(x => x.key === k); if (!r) return;
+  let ll = r.lat ? [r.lat, r.lng] : null;
+  if (!r.lat) {   // sin coordenadas: se estima el área por su dirección
+    const g = await geoAprox(r);
+    if (!g) { selSet.delete(k); selTxt(); renderMapa(); return toast('No se encontró la zona de ' + r.etq + '. Fija su ubicación con «Editar datos».'); }
+    ll = [g.lat, g.lng];
+  }
+  pintaSel();
+  if (ll && map && !map.getBounds().contains(ll)) map.panTo(ll);
+}
+function togBusq(i, on) {   // resultado del buscador incluido (o quitado) de la ruta
+  const x = resBusq[i]; if (!x) return; const key = 'bq:' + x.place_id;
+  if (on) {
+    const nom = x.name || String(x.display_name).split(',')[0];
+    selBusq.set(key, { key, extra: true, etq: nom, victima: nom, direccion: x.display_name, lat: +x.lat, lng: +x.lon, dias: null });
+  } else selBusq.delete(key);
+  selTxt(); pintaSel();
+}
 
 const hav = (a, b) => { const R = 6371, t = x => x * Math.PI / 180, dl = t(b.lat - a.lat), dg = t(b.lng - a.lng); const h = Math.sin(dl / 2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dg / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
 
@@ -593,10 +638,7 @@ function renderMapa() {
   initMap(); setTimeout(() => map.invalidateSize(), 50); grp.clearLayers(); mk = {};
   L.circleMarker([CFG.base.lat, CFG.base.lng], { radius: 10, color: '#1a5fd0', fillColor: '#1a5fd0', fillOpacity: .9 }).addTo(grp).bindPopup(esc(CFG.base.nombre));
   if (origen) L.circleMarker([origen.lat, origen.lng], { radius: 10, color: '#7b1fa2', fillColor: '#7b1fa2', fillOpacity: .9 }).addTo(grp).bindPopup('Mi ubicación');
-  D.filter(r => r.lat).forEach(r => {
-    mk[r.key] = L.circleMarker([r.lat, r.lng], { radius: 7, color: '#222', weight: 1, fillOpacity: .9, fillColor: r.dias == null ? '#777' : r.dias < 0 ? '#b3261e' : r.dias <= CFG.dias ? '#b26a00' : '#2e7d4f' })
-      .addTo(grp).bindPopup('<b>' + esc(r.etq) + '</b><br>' + esc(r.direccion) + '<br><a href="#" onclick="regVisita(\'' + esc(r.key) + '\');return false">✔ Registrar visita</a> · <a href="#" onclick="openExp(\'' + esc(r.key) + '\');return false">Abrir expediente</a>');
-  });
+  pintaSel();   // solo se dibujan las visitas marcadas con "Incluir en la ruta"
   $('lst').innerHTML = mapList().map(r => '<div class="it"><div><a href="#" onclick="verEnMapa(\'' + esc(r.key) + '\');return false"><b>' + esc(r.etq) + '</b></a> ' + badge(r) +
     '<small>' + esc(r.direccion) + (r.lat ? '' : ' · sin coordenadas (se usará la dirección)') + '</small>' +
     '<label class="inc"><input type="checkbox" ' + (selSet.has(r.key) ? 'checked ' : '') + 'onchange="tog(\'' + esc(r.key) + '\',this.checked)"> Incluir en la ruta</label></div>' +
@@ -609,12 +651,15 @@ async function verEnMapa(key) {
   if ($('dlg').open) $('dlg').close();
   document.querySelector('[data-t=mapa]').click();
   tmp.clearLayers();
-  if (r.lat) { map.flyTo([r.lat, r.lng], 18); setTimeout(() => mk[key] && mk[key].openPopup(), 900); return; }
+  if (r.lat) {   // el punto es temporal: solo queda fijo en el mapa si se marca "Incluir en la ruta"
+    const m = L.circleMarker([r.lat, r.lng], { radius: 8, color: '#222', weight: 1, fillOpacity: .9, fillColor: '#1a5fd0' }).addTo(tmp).bindPopup(popupDe(r));
+    map.flyTo([r.lat, r.lng], 18); setTimeout(() => m.openPopup(), 900); return;
+  }
   toast('Sin coordenadas: buscando por la dirección…');
-  const g = await nomi(r.direccion);
+  const g = await geoAprox(r);
   if (!g) return toast('No se encontró la dirección. Usa "Editar datos" para fijar su ubicación.');
-  L.circleMarker([g.lat, g.lng], { radius: 9, color: '#b26a00', fillOpacity: .4, dashArray: '3' }).addTo(tmp)
-    .bindPopup('<b>' + esc(r.etq) + '</b><br>Ubicación aproximada, según la dirección<br><a href="#" onclick="editar(\'' + esc(key) + '\');return false">Editar datos para fijar la ubicación</a>').openPopup();
+  L.circle([g.lat, g.lng], { radius: g.radio || 200, color: '#b26a00', weight: 2, dashArray: '5', fillColor: '#b26a00', fillOpacity: .18 }).addTo(tmp)
+    .bindPopup('<b>' + esc(r.etq) + '</b><br>Zona aproximada (~' + (g.radio || 200) + ' m), según la dirección<br><a href="#" onclick="editar(\'' + esc(key) + '\');return false">Editar datos para fijar la ubicación</a>').openPopup();
   map.flyTo([g.lat, g.lng], 16);
 }
 
@@ -625,7 +670,8 @@ async function buscarLugar() {
   try {
     const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
     resBusq = j;
-    $('mres').innerHTML = j.length ? '<small>Elige un resultado:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
+    $('mres').innerHTML = j.length ? '<small>Elige un resultado para verlo, o márcalo para incluirlo en la ruta:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a>' +
+      '<label class="inc"><input type="checkbox" ' + (selBusq.has('bq:' + x.place_id) ? 'checked ' : '') + 'onchange="togBusq(' + i + ',this.checked)"> Incluir en la ruta</label></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
     } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; } finally { busyOff(); }
 }
 function irResultado(i) {
@@ -648,7 +694,7 @@ function limpiarMapa() {
   rutaId++; cancelar(); placingOrigen = false;
   if (rutaL) { map.removeLayer(rutaL); rutaL = null; }
   rg.clearLayers(); tmp.clearLayers(); rutaPts = []; rutaDone = new Set(); rutaInfo = ''; resBusq = [];
-  selSet.clear(); origen = null; $('orgSel').value = 'base'; selTxt(); $('rta').innerHTML = ''; $('mres').innerHTML = ''; $('ms').value = '';
+  selSet.clear(); selBusq.clear(); origen = null; $('orgSel').value = 'base'; selTxt(); $('rta').innerHTML = ''; $('mres').innerHTML = ''; $('ms').value = '';
   renderMapa(); map.setView([CFG.base.lat, CFG.base.lng], 13); toast('Mapa limpio');
 }
 
@@ -664,14 +710,18 @@ function regVisita(k) {
 function confirmarVisita(k) {
   $('rv_ok').disabled = true;
   call('saveVisit', k, $('rv_f').value, $('rv_t').value, $('rv_o').value)
-    .then(() => { selSet.delete(k); rutaDone.add(k); $('dlg').close(); toast('✔ Visita registrada'); pintaRuta(); return load(); })
+    .then(() => { selSet.delete(k); rutaDone.add(k); $('dlg').close(); toast('✔ Visita registrada'); selTxt(); pintaSel(); pintaRuta(); return load(); })
     .catch(() => { $('rv_ok').disabled = false; });
 }
 
 /* Ruta */
-async function pedirRuta(c) {   // prueba dos servidores de rutas; si ninguno responde en 9 s, devuelve null
+const SERV_RUTA = {   // a pie solo usa el servidor con perfil peatonal (el servidor de respaldo solo calcula rutas en carro)
+  car: ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/'],
+  foot: ['https://routing.openstreetmap.de/routed-foot/route/v1/foot/']
+};
+async function pedirRuta(c, modo) {   // prueba los servidores de rutas; si ninguno responde en 9 s, devuelve null
   const coords = c.map(p => p.lng + ',' + p.lat).join(';');
-  for (const u of ['https://routing.openstreetmap.de/routed-car/route/v1/driving/', 'https://router.project-osrm.org/route/v1/driving/']) {
+  for (const u of SERV_RUTA[modo] || SERV_RUTA.car) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 9000);
     try { const j = await (await fetch(u + coords + '?overview=full&geometries=geojson', { signal: ctl.signal })).json(); clearTimeout(t); if (j.code === 'Ok') return j.routes[0]; }
     catch (e) { clearTimeout(t); }
@@ -681,7 +731,7 @@ async function pedirRuta(c) {   // prueba dos servidores de rutas; si ninguno re
 function pintaRuta() {
   if (!rutaPts.length) { $('rta').innerHTML = ''; return; }
   $('rta').innerHTML = '<b>Ruta (' + rutaPts.length + ' paradas)</b><ol style="padding-left:20px;margin:6px 0">' + rutaPts.map(r => '<li style="margin-bottom:6px">' +
-    (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada' : esc(r.etq) + (r.aprox ? ' <small>(aprox.)</small>' : '') + ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>') + '</li>').join('') +
+    (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada' : esc(r.etq) + (r.aprox ? ' <small>(zona aprox.)</small>' : '') + (r.extra ? '' : ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>')) + '</li>').join('') +
     '</ol><small>' + esc(rutaInfo) + '</small>';
 }
 
@@ -696,8 +746,9 @@ $('go').onclick = async () => {
       renderMapa();
     } else if ($('orgSel').value === 'base') origen = null;
     let pts = [], sin = [];
-    const marcados = D.filter(x => selSet.has(x.key));
-    if (!marcados.length) return toast('Marca al menos una visita con "Incluir en la ruta"');
+    const modo = $('modo').value === 'foot' ? 'foot' : 'car';
+    const marcados = D.filter(x => selSet.has(x.key)).concat([...selBusq.values()]);
+    if (!marcados.length) return toast('Marca al menos una parada con "Incluir en la ruta"');
     for (const r of marcados) {
       if (r.lat) { pts.push(r); continue; }
       busyTxt('Buscando la dirección de ' + r.etq + '…');
@@ -711,14 +762,15 @@ $('go').onclick = async () => {
     if ($('ord').value === 'urg') pts.sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
     else { const o = []; let cur = origen || CFG.base; while (pts.length) { pts.sort((a, b) => hav(cur, a) - hav(cur, b)); cur = pts.shift(); o.push(cur); } pts = o; }
     rutaPts = pts; rutaDone = new Set(); rutaInfo = 'Calculando la ruta por calles…';
-    if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers();
+    if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers(); pintaSel();
+    pts.forEach(p => { if (p.aprox) L.circle([p.lat, p.lng], { radius: p.radio || 200, color: '#b26a00', weight: 2, dashArray: '5', fillColor: '#b26a00', fillOpacity: .18, interactive: false }).addTo(rg); });
     pts.forEach((p, i) => L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="num">' + (i + 1) + '</div>', iconSize: [26, 26] }) }).addTo(rg).bindPopup((i + 1) + '. ' + esc(p.victima)));
     const c = [origen || CFG.base].concat(pts), recta = () => L.polyline(c.map(p => [p.lat, p.lng]), { color: '#1a5fd0', dashArray: '6', weight: 3 }).addTo(map);
     rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
-    const rt = await pedirRuta(c);
+    const rt = await pedirRuta(c, modo);
     if (id !== rutaId) return;
     map.removeLayer(rutaL);
-    if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: '#1a5fd0', weight: 5 } }).addTo(map); rutaInfo = (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min (sin tráfico)'; }
+    if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: modo === 'foot' ? '#2e7d4f' : '#1a5fd0', weight: 5, dashArray: modo === 'foot' ? '2 8' : null, lineCap: 'round' } }).addTo(map); rutaInfo = (modo === 'foot' ? '🚶 A pie: ' : '🚗 En carro: ') + (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min' + (modo === 'foot' ? '' : ' (sin tráfico)'); }
     else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
     map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
     if (sin.length) setTimeout(avisoSin, 300);

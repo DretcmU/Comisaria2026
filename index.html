@@ -635,6 +635,14 @@ function irResultado(i) {
   map.flyTo(ll, 17);
 }
 
+/* Salir del modo "ubicar casa en el mapa": oculta el aviso y quita el cursor de cruz */
+function cancelar() {
+  placing = null; placingNew = false;
+  const ban = $('ban');
+  if (ban) { ban.classList.add('hide'); ban.innerHTML = ''; }
+  if (map) map.getContainer().classList.remove('placing');
+}
+
 /* Limpiar todo el mapa para una consulta nueva */
 function limpiarMapa() {
   rutaId++; cancelar(); placingOrigen = false;

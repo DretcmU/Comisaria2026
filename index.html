@@ -28,7 +28,11 @@ a.btn{display:inline-block;background:#fff;border:1px solid #c9d2cc;padding:6px 
 a.btn:hover{background:#f0f6f2}
 button.p:disabled{opacity:.5}
 .map{display:grid;grid-template-columns:330px 1fr;gap:12px;height:calc(100vh - 215px);min-height:420px}
-#side{overflow:auto}#map{border-radius:10px;border:1px solid var(--line);min-height:380px}
+#side{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+.pan{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#boxLst{flex:1 1 55%}#boxRta{flex:1 1 45%}
+.psc{overflow:auto;min-height:0;flex:1}
+#boxRta:has(#rta:empty){display:none}#map{border-radius:10px;border:1px solid var(--line);min-height:380px}
 .it{padding:8px 0;border-bottom:1px solid #eef1ee;display:flex;gap:8px;align-items:flex-start}.it div{flex:1;min-width:0}.it small{color:var(--mute);display:block}
 dialog{border:0;border-radius:12px;max-width:720px;width:94vw;padding:20px}dialog::backdrop{background:#0006}
 .g2{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:14px}.g2 dt{color:var(--mute)}.g2 dd{margin:0}
@@ -53,7 +57,7 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
 .bar2{background:#e8eee9;border-radius:6px;height:12px}.bar2 i{display:block;height:100%;background:var(--brand);border-radius:6px}
 #adm h4{margin:18px 0 6px}
 @media(max-width:800px){body{flex-direction:column}nav{width:auto;flex-direction:row;flex-wrap:wrap;padding:8px}nav h1,nav small{display:none}nav select#cuaSel{width:auto;margin:0}
-.map{grid-template-columns:1fr;height:auto}#map{height:55vh}#side{max-height:40vh}main{padding:12px}}
+.map{grid-template-columns:1fr;height:auto}#map{height:55vh}#side{max-height:none}.pan{flex:none}#boxLst .psc{max-height:28vh}#boxRta .psc{max-height:24vh}main{padding:12px}}
 .mtool{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
 .mrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .mrow .grow{flex:1;min-width:200px}
@@ -107,12 +111,15 @@ table.xt{font-size:11.5px;width:max-content;min-width:100%;border-collapse:separ
   <div id="mres"></div>
 </div>
 <div id="ban" class="ban hide"></div>
-<div class="map"><div class="box" id="side">
-  <b>Visitas por vencer y vencidas</b>
-  <span class="help">El mapa solo muestra la comisaría; cada visita aparece al marcarla con <b>Incluir en la ruta</b> (también puedes incluir resultados del buscador). Elige <b>En carro</b> o <b>A pie</b> y pulsa <b>▶ Iniciar ruta</b>. Usa <b>✔ Registrar visita</b> cuando la visita ya se hizo.</span>
-  <div id="lst"></div>
-  <div id="rta"></div></div>
-<div id="map"></div></div></section>
+<div id="side">
+  <div class="box pan" id="boxLst">
+    <b>Visitas por vencer y vencidas</b>
+    <span class="help">El mapa solo muestra la comisaría; cada visita aparece al marcarla con <b>Incluir en la ruta</b> (también puedes incluir resultados del buscador). Elige <b>En carro</b> o <b>A pie</b> y pulsa <b>▶ Iniciar ruta</b>. Usa <b>✔ Registrar visita</b> cuando la visita ya se hizo.</span>
+    <div id="lst" class="psc"></div>
+  </div>
+  <div class="box pan" id="boxRta"><div id="rta" class="psc"></div></div>
+</div>
+</section>
 
 <section id="t-admin" class="hide"><h2>Administración</h2>
 <div class="bar" id="admtabs"><button class="p" data-a="mon">Monitoreo</button><button class="s" data-a="cua">Cuadros</button><button class="s" data-a="usr">Usuarios</button><button class="s" data-a="aud">Historial de cambios</button></div>
@@ -145,7 +152,7 @@ const MSG = { login: 'Verificando tus datos…', inicio: 'Cargando…', elegirCu
   cambiarPassword: 'Guardando la contraseña…', saveVisit: 'Guardando la visita…', deleteVisit: 'Anulando la visita…', setEstado: 'Guardando el estado…', addRow: 'Guardando el registro en el Excel…',
   updateRow: 'Guardando los cambios en el Excel…', exportDefaults: 'Preparando el documento…', generarDocumentos: 'Generando los documentos Word…', adminSincronizar: 'Revisando los Excel de la carpeta Data…',
   adminEditarCuadro: 'Guardando…', adminGuardarUsuario: 'Guardando el usuario…', adminResetPassword: 'Restableciendo la clave…', adminResumen: 'Cargando el monitoreo…', adminAuditoria: 'Buscando en el historial…',
-  adminUsuarios: 'Cargando usuarios…', adminCuadros: 'Cargando cuadros…', logout: 'Cerrando sesión…' };
+  adminUsuarios: 'Cargando usuarios…', adminCuadros: 'Cargando cuadros…', logout: 'Cerrando sesión…', adminEliminarUsuario: 'Eliminando el usuario…'};
 function busyOn(m) { busyN++; $('busyT').textContent = m || 'Procesando…'; if (busyN === 1 && !$('busy').open) $('busy').showModal(); }
 function busyOff() { busyN = Math.max(0, busyN - 1); if (!busyN && $('busy').open) $('busy').close(); }
 const busyTxt = m => { $('busyT').textContent = m; };
@@ -308,8 +315,9 @@ function renderAdmin() {
   document.querySelectorAll('#admtabs button').forEach(b => { b.className = b.dataset.a === admTab ? 'p' : 's'; });
   ({ mon: admMon, cua: admCua, usr: admUsr, aud: admAud })[admTab]();
 }
-const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida', CAMBIO_PASSWORD: 'Cambio de clave', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido', SINCRONIZAR: 'Sincronización' };
-const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada' };
+const ACC = { REGISTRAR_VISITA: 'Visita registrada', ANULAR_VISITA: 'Visita anulada', ESTADO: 'Cambio de estado', UBICACION: 'Ubicación', NUEVO_REGISTRO: 'Nuevo registro', EDITAR: 'Edición de datos', EXPORTAR_WORD: 'Exportación a Word', CREAR_USUARIO: 'Usuario creado', EDITAR_USUARIO: 'Usuario editado', RESET_PASSWORD: 'Clave restablecida',
+             CAMBIO_PASSWORD: 'Cambio de clave', EDITAR_CUADRO: 'Cuadro editado', ELEGIR_CUADRO: 'Cuadro elegido', SINCRONIZAR: 'Sincronización', ELIMINAR_USUARIO: 'Usuario eliminado'};
+const EVT = { LOGIN_OK: 'Ingresó', LOGOUT: 'Salió', LOGIN_FALLIDO: 'Intento fallido', LOGIN_BLOQUEADO: 'Cuenta bloqueada', ELIMINAR_USUARIO_FALLIDO: 'Clave incorrecta al eliminar'};
 async function admMon() {
   $('adm').innerHTML = '<small>Cargando…</small>';
   const r = await call('adminResumen').catch(() => null);
@@ -366,8 +374,22 @@ async function admUsr() {
   const us = await call('adminUsuarios').catch(() => null); if (!us) return; USR = us;
   $('adm').innerHTML = '<div class="bar"><button class="p" onclick="formUsuario()">+ Nuevo usuario</button></div><table><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr>' +
     us.map(u => '<tr><td>' + esc(u.usuario) + '</td><td>' + esc(u.nombre) + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.rol) + '</td><td>' + (u.activo ? '<span class="b g">activo</span>' : '<span class="b n">inactivo</span>') + (u.debe_cambiar ? ' <span class="b a">clave temporal</span>' : '') + (u.bloqueado ? ' <span class="b r">bloqueado</span>' : '') + '</td><td>' + esc(u.ultimo || '—') +
-      '</td><td style="white-space:nowrap"><button class="s" onclick="formUsuario(\'' + esc(u.usuario) + '\')">Editar</button> <button class="s" onclick="resetClave(\'' + esc(u.usuario) + '\')">Restablecer clave</button></td></tr>').join('') + '</table>';
+      '</td><td style="white-space:nowrap"><button class="s" onclick="formUsuario(\'' + esc(u.usuario) + '\')">Editar</button> <button class="s" onclick="resetClave(\'' + esc(u.usuario) + '\')">Restablecer clave</button></td></tr>').join('') + (u.usuario !== ME.usuario ? ' <button class="s" style="color:var(--red)" onclick="eliminarUsuario(\'' + esc(u.usuario) + '\')">Eliminar</button>' : '') + '</table>';
 }
+
+function eliminarUsuario(u) {
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Eliminar usuario</h3><p>Vas a eliminar la cuenta <b>' + esc(u) + '</b>. No se puede deshacer (su historial en Auditoría se conserva). Si solo quieres bloquear su acceso, es mejor desactivarla con «Editar».</p>' +
+    '<label>Tu contraseña de administrador<input id="dp" type="password" autocomplete="current-password" style="width:100%"></label>' +
+    '<div class="bar" style="margin-top:12px"><button class="p" id="dok" style="background:var(--red)">Eliminar definitivamente</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
+  const go = () => {
+    if (!$('dp').value) return toast('Escribe tu contraseña');
+    $('dok').disabled = true;
+    call('adminEliminarUsuario', u, $('dp').value).then(() => { $('dlg').close(); toast('Usuario eliminado'); admUsr(); }).catch(() => { $('dok').disabled = false; });
+  };
+  $('dok').onclick = go; $('dp').onkeydown = e => { if (e.key === 'Enter') go(); };
+  if (!$('dlg').open) $('dlg').showModal();
+}
+
 function formUsuario(usuario) {
   const u = usuario ? USR.find(x => x.usuario === usuario) : null, ed = !!u, st = 'style="width:100%"';
   $('dlg').innerHTML = '<h3 style="margin-top:0">' + (ed ? 'Editar usuario' : 'Nuevo usuario') + '</h3><div style="display:grid;gap:8px">' +
@@ -649,6 +671,7 @@ function renderMapa() {
     '<button class="p" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button></div>').join('') || '<p>No hay visitas pendientes.</p>';
 }
 
+function cerrarResultados() { $('mres').innerHTML = ''; resBusq = []; tmp.clearLayers(); }
 /* Mostrar a una persona en el mapa (NO cambia su ubicación; para eso está "Editar datos") */
 async function verEnMapa(key) {
   const r = D.find(x => x.key === key); if (!r) return;
@@ -674,8 +697,10 @@ async function buscarLugar() {
   try {
     const j = await (await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=pe&viewbox=-71.85,-16.10,-71.30,-16.65&bounded=1&q=' + encodeURIComponent(/arequipa/i.test(q) ? q : q + ', Arequipa'))).json();
     resBusq = j;
-    $('mres').innerHTML = j.length ? '<small>Elige un resultado para verlo, o márcalo para incluirlo en la ruta:</small>' + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a>' +
-      '<label class="inc"><input type="checkbox" ' + (selBusq.has('bq:' + x.place_id) ? 'checked ' : '') + 'onchange="togBusq(' + i + ',this.checked)"> Incluir en la ruta</label></div></div>').join('') : '<small>Sin resultados. Prueba con otra calle, zona o referencia.</small>';
+    const cab = '<div class="mrow" style="justify-content:space-between;position:sticky;top:0;background:var(--card)"><small>' + (j.length ? 'Elige un resultado para verlo, o márcalo para incluirlo en la ruta:' : 'Sin resultados. Prueba con otra calle, zona o referencia.') + '</small><button class="s" onclick="cerrarResultados()" title="Cerrar resultados">✕ Cerrar</button></div>';
+    $('mres').innerHTML = cab + j.map((x, i) => '<div class="it"><div><a href="#" onclick="irResultado(' + i + ');return false">' + esc(x.display_name) + '</a>' +
+                        '<label class="inc"><input type="checkbox" ' + (selBusq.has('bq:' + x.place_id) ? 'checked ' : '') + 'onchange="togBusq(' + i + ',this.checked)"> Incluir en la ruta</label></div></div>').join('');
+    
     } catch (e) { $('mres').innerHTML = '<small>No se pudo buscar (revisa la conexión).</small>'; } finally { busyOff(); }
 }
 function irResultado(i) {
@@ -711,10 +736,17 @@ function regVisita(k) {
     '<div class="bar"><button class="p" id="rv_ok" onclick="confirmarVisita(\'' + esc(k) + '\')">✔ Confirmar visita</button><button class="s" onclick="$(\'dlg\').close()">Cancelar</button></div>';
   if (!$('dlg').open) $('dlg').showModal();
 }
+
 function confirmarVisita(k) {
   $('rv_ok').disabled = true;
   call('saveVisit', k, $('rv_f').value, $('rv_t').value, $('rv_o').value)
-    .then(() => { selSet.delete(k); rutaDone.add(k); $('dlg').close(); toast('✔ Visita registrada'); selTxt(); pintaSel(); pintaRuta(); return load(); })
+    .then(() => {
+      selSet.delete(k); $('dlg').close(); toast('✔ Visita registrada'); selTxt();
+      if (rutaPts.some(p => p.key === k)) {   // se quita de la ruta y se recalcula con las que faltan
+        trazarRuta(rutaPts.filter(p => p.key !== k), rutaModo, ++rutaId).catch(() => {});
+      } else pintaSel();
+      return load();   // la lista de pendientes también se actualiza
+    })
     .catch(() => { $('rv_ok').disabled = false; });
 }
 
@@ -737,6 +769,24 @@ function pintaRuta() {
   $('rta').innerHTML = '<b>Ruta (' + rutaPts.length + ' paradas)</b><ol style="padding-left:20px;margin:6px 0">' + rutaPts.map(r => '<li style="margin-bottom:6px">' +
     (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada' : esc(r.etq) + (r.aprox ? ' <small>(zona aprox.)</small>' : '') + (r.extra ? '' : ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>')) + '</li>').join('') +
     '</ol><small>' + esc(rutaInfo) + '</small>';
+}
+
+let rutaModo = 'car';
+async function trazarRuta(pts, modo, id) {
+  rutaModo = modo; rutaPts = pts; rutaDone = new Set(); rutaInfo = 'Calculando la ruta por calles…';
+  if (rutaL) { map.removeLayer(rutaL); rutaL = null; }
+  rg.clearLayers(); tmp.clearLayers(); pintaSel();
+  if (!pts.length) { rutaInfo = ''; pintaRuta(); return; }
+  pts.forEach(p => { if (p.aprox) L.circle([p.lat, p.lng], { radius: p.radio || 200, color: '#b26a00', weight: 2, dashArray: '5', fillColor: '#b26a00', fillOpacity: .18, interactive: false }).addTo(rg); });
+  pts.forEach((p, i) => L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="num">' + (i + 1) + '</div>', iconSize: [26, 26] }) }).addTo(rg).bindPopup((i + 1) + '. ' + esc(p.victima)));
+  const c = [origen || CFG.base].concat(pts), recta = () => L.polyline(c.map(p => [p.lat, p.lng]), { color: '#1a5fd0', dashArray: '6', weight: 3 }).addTo(map);
+  rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
+  const rt = await pedirRuta(c, modo);
+  if (id !== rutaId) return;
+  map.removeLayer(rutaL);
+  if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: modo === 'foot' ? '#2e7d4f' : '#1a5fd0', weight: 5, dashArray: modo === 'foot' ? '2 8' : null, lineCap: 'round' } }).addTo(map); rutaInfo = (modo === 'foot' ? '🚶 A pie: ' : '🚗 En carro: ') + (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min' + (modo === 'foot' ? '' : ' (sin tráfico)'); }
+  else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
+  map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
 }
 
 
@@ -765,18 +815,9 @@ $('go').onclick = async () => {
     busyTxt('Calculando la ruta…');
     if ($('ord').value === 'urg') pts.sort((a, b) => (a.dias ?? 999) - (b.dias ?? 999));
     else { const o = []; let cur = origen || CFG.base; while (pts.length) { pts.sort((a, b) => hav(cur, a) - hav(cur, b)); cur = pts.shift(); o.push(cur); } pts = o; }
-    rutaPts = pts; rutaDone = new Set(); rutaInfo = 'Calculando la ruta por calles…';
-    if (rutaL) { map.removeLayer(rutaL); rutaL = null; } rg.clearLayers(); tmp.clearLayers(); pintaSel();
-    pts.forEach(p => { if (p.aprox) L.circle([p.lat, p.lng], { radius: p.radio || 200, color: '#b26a00', weight: 2, dashArray: '5', fillColor: '#b26a00', fillOpacity: .18, interactive: false }).addTo(rg); });
-    pts.forEach((p, i) => L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div class="num">' + (i + 1) + '</div>', iconSize: [26, 26] }) }).addTo(rg).bindPopup((i + 1) + '. ' + esc(p.victima)));
-    const c = [origen || CFG.base].concat(pts), recta = () => L.polyline(c.map(p => [p.lat, p.lng]), { color: '#1a5fd0', dashArray: '6', weight: 3 }).addTo(map);
-    rutaL = recta(); map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
-    const rt = await pedirRuta(c, modo);
+    
+    await trazarRuta(pts, modo, id);
     if (id !== rutaId) return;
-    map.removeLayer(rutaL);
-    if (rt) { rutaL = L.geoJSON(rt.geometry, { style: { color: modo === 'foot' ? '#2e7d4f' : '#1a5fd0', weight: 5, dashArray: modo === 'foot' ? '2 8' : null, lineCap: 'round' } }).addTo(map); rutaInfo = (modo === 'foot' ? '🚶 A pie: ' : '🚗 En carro: ') + (rt.distance / 1000).toFixed(1) + ' km · ' + Math.round(rt.duration / 60) + ' min' + (modo === 'foot' ? '' : ' (sin tráfico)'); }
-    else { rutaL = recta(); rutaInfo = 'No se pudo obtener la ruta por calles (los servidores no respondieron): se muestra una línea recta.'; }
-    map.fitBounds(rutaL.getBounds(), { padding: [30, 30] }); pintaRuta();
     if (sin.length) setTimeout(avisoSin, 300);
   } finally { btn.disabled = false; busyOff(); }
 };

@@ -770,10 +770,20 @@ async function pedirRuta(c, modo) {   // prueba los servidores de rutas; si ning
   }
   return null;
 }
+
+function quitarParada(k) {
+  selBusq.delete(k); selSet.delete(k); selTxt();
+  trazarRuta(rutaPts.filter(p => p.key !== k), rutaModo, ++rutaId).catch(() => {});
+}
+
 function pintaRuta() {
   if (!rutaPts.length) { $('rta').innerHTML = ''; return; }
   $('rta').innerHTML = '<b>Ruta (' + rutaPts.length + ' paradas)</b><ol style="padding-left:20px;margin:6px 0">' + rutaPts.map(r => '<li style="margin-bottom:6px">' +
-    (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada' : esc(r.etq) + (r.aprox ? ' <small>(zona aprox.)</small>' : '') + (r.extra ? '' : ' <button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>')) + '</li>').join('') +
+    (rutaDone.has(r.key) ? '<s>' + esc(r.etq) + '</s> ✔ visitada'
+      : esc(r.etq) + (r.aprox ? ' <small>(zona aprox.)</small>' : '') + ' ' +
+        (r.extra
+          ? '<button class="s" onclick="quitarParada(\'' + esc(r.key) + '\')">✔ Lugar visitado</button>'
+          : '<button class="s" onclick="regVisita(\'' + esc(r.key) + '\')">✔ Registrar visita</button>')) + '</li>').join('') +
     '</ol><small>' + esc(rutaInfo) + '</small>';
 }
 

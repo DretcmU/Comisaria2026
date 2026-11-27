@@ -503,14 +503,37 @@ function openExp(key) {
   const F = [['Víctima', r.victima || '(sin nombre en el Excel)'], ['Edad / sexo', r.edad + ' / ' + r.sexo], ['Celular', r.celular], ['DNI', r.dni], ['Dirección', r.direccion], ['Expediente', r.expediente], ['Fecha de registro', r.fReg], ['Fecha de resolución', r.fRes], ['Tipo de violencia', r.violencia], ['Agresor', r.agresor], ['Riesgo', r.riesgo], ['Mes de informe', r.mes], ['Vigencia', r.vigencia], ['B.P (botón de pánico)', r.bp], ['Coordenadas', r.lat ? r.lat.toFixed(6) + ', ' + r.lng.toFixed(6) : 'Sin coordenadas (se usa la dirección)'], ['Próxima visita', r.proxima]];
   const pt = r.participantes.length ? '<h4>Otras personas del expediente</h4><table>' + r.participantes.map(p => '<tr><td>' + esc(p.nombre) + '</td><td>' + esc(p.edad) + ' ' + esc(p.sexo) + '</td><td>' + esc(p.dni) + '</td><td>' + esc(p.celular) + '</td><td>' + esc(p.direccion) + '</td></tr>').join('') + '</table>' : '';
   const ex = Object.keys(r.extras).length ? '<details><summary>Otras columnas</summary><dl class="g2">' + Object.entries(r.extras).map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl></details>' : '';
-  const vs = r.visitas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).map(v => '<tr><td>' + (v.fecha || '—') + '</td><td>' + esc(v.tipo) + '</td><td>' + esc(v.texto || v.obs || '') + '</td><td>' + (v.tipo === 'Excel' ? '' : '<button class="s" onclick="anular(\'' + esc(v.id) + '\')">Anular</button>') + '</td></tr>').join('');
-  $('dlg').innerHTML = '<h3 style="margin-top:0">Nro ' + esc(r.nro) + ' · ' + esc(r.hoja) + ' ' + badge(r) + '</h3><dl class="g2">' + F.map(x => '<dt>' + x[0] + '</dt><dd>' + esc(x[1] || '—') + '</dd>').join('') + '</dl>' + pt + ex +
+  //const vs = r.visitas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).map(v => '<tr><td>' + (v.fecha || '—') + '</td><td>' + esc(v.tipo) + '</td><td>' + esc(v.texto || v.obs || '') + '</td><td>' + (v.tipo === 'Excel' ? '' : '<button class="s" onclick="anular(\'' + esc(v.id) + '\')">Anular</button>') + '</td></tr>').join('');
+
+  const vs = r.visitas.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).map(v => '<tr><td>' + (v.fecha || '—') + '</td><td>' + esc(v.tipo) + '</td><td>' + esc(v.texto || v.obs || '') + '</td><td>' +
+  (v.tipo === 'Excel' ? '<small>Excel</small>' : esc(v.por || '—') + '<br><small>' + esc(v.reg || '') + '</small>') + '</td><td>' + (v.tipo === 'Excel' ? '' : '<button class="s" onclick="anular(\'' + esc(v.id) + '\')">Anular</button>') + '</td></tr>').join('');
+  
+  $('dlg').innerHTML = '<h3 style="margin-top:0">Nro ' + esc(r.nro) + ' · ' + esc(r.hoja) + ' ' + badge(r) + '</h3><dl class="g2">' + F.map(x => '<dt>' + x[0] + '</dt><dd>' + esc(x[1] || '—') + '</dd>').join('') + '</dl>' + pt + ex + '<div id="otras" data-k="' + esc(key) + '"></div><div id="hist" data-k="' + esc(key) + '"></div>' +
     '<h4>Visitas</h4><table>' + (vs || '<tr><td>Sin visitas registradas</td></tr>') + '</table>' +
     '<div class="bar" style="margin-top:10px"><input type="date" id="vf" value="' + hoy + '" max="' + hoy + '"><select id="vt"><option>Presencial</option><option>Telefónica</option></select><input id="vo" placeholder="Lo que refiere (opcional)" style="flex:1;min-width:160px"><button class="p" onclick="visita(\'' + esc(key) + '\')">Registrar visita</button></div>' +
     '<div class="bar"><select id="es"><option>Vigente</option><option>Derivada</option><option>Acumulada</option><option>Culminada</option><option>Sin efecto</option><option>Archivada</option></select><input id="rs" placeholder="Resolución (si queda sin efecto)"><button class="s" onclick="estado(\'' + esc(key) + '\')">Cambiar estado</button></div>' +
     '<div class="bar"><button class="s" onclick="editar(\'' + esc(key) + '\')">Editar datos</button><button class="s" onclick="verEnMapa(\'' + esc(key) + '\')">Ver en el mapa</button>' + (CFG.word ? '<button class="s" onclick="abrirExport(\'' + esc(key) + '\')">Generar informe y oficio</button>' : '') + '<button class="s" onclick="$(\'dlg\').close()" style="margin-left:auto">Cerrar</button></div>';
   $('es').value = r.estado; if (!$('dlg').open) $('dlg').showModal();
+  callQ('otrasMedidas', key).then(l => pintaOtras(key, l)).catch(() => {});
+  callQ('historialExp', key).then(l => pintaHist(key, l)).catch(() => {});
 }
+
+function pintaOtras(key, l) {
+  const el = $('otras'); if (!el || el.dataset.k !== key) return;
+  el.innerHTML = l.length ? '<h4>Otras medidas de esta persona (mismo DNI)</h4><table><tr><th>Cuadro</th><th>Nro</th><th>Expediente</th><th>Riesgo</th><th>Registro</th><th>Estado</th></tr>' +
+    l.map(m => '<tr class="c" onclick="irMedida(\'' + esc(m.cuadro) + '\',\'' + esc(m.key) + '\')"><td>' + esc(m.cuadroNombre) + '<br><small>' + esc(m.hoja) + '</small></td><td>' + esc(m.nro) + '</td><td>' + esc(m.expediente) +
+      (m.como ? '<br><small>figura como otra persona del expediente</small>' : '') + '</td><td>' + esc(m.riesgo) + '</td><td>' + esc(m.fReg || '—') + '</td><td>' + esc(m.estado) + '</td></tr>').join('') + '</table>' : '';
+}
+async function irMedida(cuadroId, key) {
+  if (!CUR || CUR.id !== cuadroId) { await abrirCuadro(cuadroId); if (!CUR || CUR.id !== cuadroId) return; }
+  openExp(key);
+}
+function pintaHist(key, l) {
+  const el = $('hist'); if (!el || el.dataset.k !== key) return;
+  el.innerHTML = l.length ? '<details><summary>Quién actualizó este registro (últimos ' + l.length + ')</summary><table>' +
+    l.map(a => '<tr><td style="white-space:nowrap">' + esc(a.fecha) + '</td><td>' + esc(a.usuario) + '</td><td>' + esc(ACC[a.accion] || a.accion) + '</td><td>' + esc(String(a.detalle).replace(/ -> /g, ' → ')) + '</td></tr>').join('') + '</table></details>' : '';
+}
+  
 const act = (p, msg) => p.then(() => { toast(msg); return load(); });
 function visita(k) { act(call('saveVisit', k, $('vf').value, $('vt').value, $('vo').value), 'Visita registrada').then(() => openExp(k)); }
 function anular(id) { if (confirm('¿Anular esta visita?')) act(call('deleteVisit', id), 'Visita anulada').then(() => $('dlg').close()); }
